@@ -4,24 +4,6 @@
 void printtextF(const char* text, int l);
 void TZXSetup();
 
-/**************************************************************
- *                  Casduino Menu Code:
- *  Menu Button (was motor controll button) opens menu
- *  up/down move through menu, play select, stop back
- *  Menu Options:
- *  Baud:
- *    1200
- *    2400
- *    2700
- *    3600
- *
- *  MotorControl:
- *    On
- *    Off
- *
- *  Save settings to eeprom on exit.
- */
-
 void menuMode()
 {
     byte lastbtn = true;

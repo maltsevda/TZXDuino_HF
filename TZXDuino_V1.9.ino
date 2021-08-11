@@ -1,52 +1,4 @@
 
-// ---------------------------------------------------------------------------------
-// DO NOT USE CLASS-10 CARDS on this project - they're too fast to operate using SPI
-// ---------------------------------------------------------------------------------
-/*
- *                                    TZXduino
- *                             Written and tested by
- *                          Andrew Beer, Duncan Edwards
- *                          www.facebook.com/Arduitape/
- *
- *              Designed for TZX files for Spectrum (and more later)
- *              Load TZX files onto an SD card, and play them directly
- *              without converting to WAV first!
- *
- *              Directory system allows multiple layers,  to return to root
- *              directory ensure a file titles ROOT (no extension) or by
- *              pressing the Menu Select Button.
- *
- *              Written using info from worldofspectrum.org
- *              and TZX2WAV code by Francisco Javier Crespo
- *
- *              ***************************************************************
- *              Menu System:
- *                TODO: add ORIC and ATARI tap support, clean up code, sleep
- *
- *              V1.0
- *                Motor Control Added.
- *                High compatibility with Spectrum TZX, and Tap files
- *                and CPC CDT and TZX files.
- *
- *                V1.32 Added direct loading support of AY files using the SpecAY loader
- *                to play Z80 coded files for the AY chip on any 128K or 48K with AY
- *                expansion without the need to convert AY to TAP using FILE2TAP.EXE.
- *                Download the AY loader from http://www.specay.co.uk/download
- *                and load the LOADER.TAP AY file loader on your spectrum first then
- *                simply select any AY file and just hit play to load it. A complete
- *                set of extracted and DEMO AY files can be downloaded from
- *                http://www.worldofspectrum.org/projectay/index.htm
- *                Happy listening!
- *
- *                V1.8.1 TSX support for MSX added by Natalia Pujol
- *
- *                V1.8.2 Percentage counter and timer added by Rafael Molina Chesserot along with a reworking of the OLED1306 library.
- *                Many memory usage improvements as well as a menu for TSX Baud Rates and a refined directory controls.
- *
- *                V1.8.3 PCD8544 library changed to use less memory. Bitmaps added and Menu system reduced to a more basic level.
- *                Bug fixes of the Percentage counter and timer when using motor control/
- */
-
 #include "TZXDuino.h"
 
 #ifdef LCDSCREEN16x2
@@ -265,64 +217,18 @@ void loop(void)
                     lcd.print(PlayBytes);
 
 #endif
-
-#ifdef OLED1306
-                    //sprintf(PlayBytes,"Paused % 3d%%  %03d",newpct,lcdsegs%1000); sendStrXY(PlayBytes,0,0);
-                    printtextF(PSTR("Paused "), 0);
-                    itoa(newpct, PlayBytes, 10);
-                    strcat_P(PlayBytes, PSTR("%"));
-                    sendStrXY(PlayBytes, 8, 0);
-                    //sprintf(PlayBytes,"%03d",lcdsegs%1000);sendStrXY(PlayBytes,13,0);
-                    strcpy(PlayBytes, "000");
-                    if ((lcdsegs % 1000) < 10)
-                        itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                    else if ((lcdsegs % 1000) < 100)
-                        itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                    else
-                        itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                    sendStrXY(PlayBytes, 13, 0);
-#endif
-
-#ifdef P8544
-                    printtextF(PSTR("Paused"), 0);
-                    itoa(newpct, PlayBytes, 10);
-                    strcat_P(PlayBytes, PSTR("%"));
-                    lcd.setCursor(0, 3);
-                    lcd.print(PlayBytes);
-                    //sprintf(PlayBytes,"%03d",lcdsegs%1000);lcd.setCursor(13,0);lcd.print(PlayBytes);strcpy(PlayBytes,"000");
-                    if ((lcdsegs % 1000) < 10)
-                        itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                    else if ((lcdsegs % 1000) < 100)
-                        itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                    else
-                        itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                    //lcd.setCursor(0,3);lcd.print(PlayBytes);
-                    lcd.gotoRc(3, 38);
-                    lcd.bitmap(Paused, 1, 6);
-#endif
-
                     pauseOn = 1;
                 }
                 else
                 {
-                    //printtextF(PSTR("Playing"),0);
-                    //printtext(PlayBytes,0);
-
 #ifdef LCDSCREEN16x2
-                    /*         //lcd_clearline(0);
-              lcd.setCursor(0,0);
-              lcd.print(F("Playing"));
-              //lcd.print(PlayBytes); */
 
-                    //sprintf(PlayBytes,"Playing% 3d%%  %03d",newpct,lcdsegs%1000); sendStrXY(PlayBytes,0,0);
                     printtextF(PSTR("Playing"), 0);
                     itoa(newpct, PlayBytes, 10);
                     strcat_P(PlayBytes, PSTR("%"));
                     lcd.setCursor(8, 0);
                     lcd.print(PlayBytes);
-                    //sprintf(PlayBytes,"%03d",lcdsegs%1000);lcd.setCursor(13,0);lcd.print(PlayBytes);
+
                     strcpy(PlayBytes, "000");
                     if ((lcdsegs % 1000) < 10)
                         itoa(lcdsegs % 10, PlayBytes + 2, 10);
@@ -335,45 +241,6 @@ void loop(void)
                     lcd.print(PlayBytes);
 
 #endif
-
-#ifdef OLED1306
-                    //sprintf(PlayBytes,"Playing% 3d%%  %03d",newpct,lcdsegs%1000); sendStrXY(PlayBytes,0,0);
-                    printtextF(PSTR("Playing"), 0);
-                    itoa(newpct, PlayBytes, 10);
-                    strcat_P(PlayBytes, PSTR("%"));
-                    sendStrXY(PlayBytes, 8, 0);
-                    //sprintf(PlayBytes,"%03d",lcdsegs%1000);sendStrXY(PlayBytes,13,0);
-                    strcpy(PlayBytes, "000");
-                    if ((lcdsegs % 1000) < 10)
-                        itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                    else if ((lcdsegs % 1000) < 100)
-                        itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                    else
-                        itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                    sendStrXY(PlayBytes, 13, 0);
-#endif
-
-#ifdef P8544
-                    printtextF(PSTR("Playing"), 0);
-                    itoa(newpct, PlayBytes, 10);
-                    strcat_P(PlayBytes, PSTR("%"));
-                    lcd.setCursor(0, 3);
-                    lcd.print(PlayBytes);
-                    //sprintf(PlayBytes,"%03d",lcdsegs%1000);lcd.setCursor(13,0);lcd.print(PlayBytes);strcpy(PlayBytes,"000");
-                    if ((lcdsegs % 1000) < 10)
-                        itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                    else if ((lcdsegs % 1000) < 100)
-                        itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                    else
-                        itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                    //lcd.setCursor(13,3);
-                    //lcd.print(PlayBytes);
-                    lcd.gotoRc(3, 38);
-                    lcd.bitmap(Play, 1, 6);
-#endif
-
                     pauseOn = 0;
                 }
             }
@@ -389,16 +256,6 @@ void loop(void)
             printtextF(PSTR("REWind ALL..    "), 0);
             delay(500);
             printtextF(PSTR("Playing         "), 0);
-            //block--;
-            //currentID=BlockCurrentID[block];
-            //pos=Fpos[block];
-            //entry.seekSet(Fpos[block]);
-            //entry.seekSet(0);
-            //pos=0;
-            //lcd.println(pos); lcd.print(" ");
-            //stopFile();
-            //playFile();
-            //TZXPlay(sfileName);           //Load using the short filename
 
             //reset data block values
             //clearBuffer();
@@ -412,13 +269,7 @@ void loop(void)
             //currentID=TAP;
             currentTask = GETFILEHEADER; //First task: search for header
             checkForEXT(sfileName);
-            /*
-       isStopped=false;
-       pinState=LOW;                               //Always Start on a LOW output for simplicity
-       count = 255;                                //End of file buffer flush
-       EndOfFile=false;
-       digitalWrite(outputPin, pinState);
-*/
+
             while (digitalRead(btnRoot) == HIGH)
             {
                 //prevent button repeats by waiting until the button is released.
@@ -432,26 +283,13 @@ void loop(void)
             //printtextF(PSTR(VERSION),0);
             //lcd_clearline(0);
             //lcd.print(F(VERSION));
-            /*
-       subdir=0;
-       prevSubDir[0][0]='\0';
-       prevSubDir[1][0]='\0';
-       prevSubDir[2][0]='\0';
-       prevSubDir[3][0]='\0';
-       sd.chdir(true);
-       getMaxFile();
-       currentFile=1;
-       seekFile(currentFile);
-*/
+
             menuMode();
             printtextF(PSTR(VERSION), 0);
             //lcd_clearline(1);
             printtextF(PSTR("                "), 1);
             scrollPos = 0;
             scrollText(fileName);
-            /*#ifdef OLED1306
-          OledStatusLine();
-       #endif*/
 
             while (digitalRead(btnRoot) == HIGH)
             {
@@ -505,16 +343,6 @@ void loop(void)
             }
         }
 
-        if (digitalRead(btnUp) == HIGH && start == 1)
-        {
-            /*
-       while(digitalRead(btnUp)==LOW) {
-         //prevent button repeats by waiting until the button is released.
-         delay(50);
-       }
- */
-        }
-
         if (digitalRead(btnUp) == HIGH && start == 0)
         {
             //Move up a file in the directory
@@ -526,16 +354,6 @@ void loop(void)
                 //prevent button repeats by waiting until the button is released.
                 delay(50);
             }
-        }
-
-        if (digitalRead(btnDown) == HIGH && start == 1)
-        {
-            /*
-       while(digitalRead(btnDown)==LOW) {
-         //prevent button repeats by waiting until the button is released.
-         delay(50);
-       }
-*/
         }
 
         if (digitalRead(btnDown) == HIGH && start == 0)
@@ -550,6 +368,7 @@ void loop(void)
                 delay(50);
             }
         }
+
         if (start == 1 && (!oldMotorState == motorState))
         {
             //if file is playing and motor control is on then handle current motor state
@@ -584,42 +403,6 @@ void loop(void)
 
 #endif
 
-#ifdef OLED1306
-                //sprintf(PlayBytes,"Paused % 3d%%  %03d",newpct,lcdsegs%1000); sendStrXY(PlayBytes,0,0);
-                printtextF(PSTR("Paused "), 0);
-                itoa(newpct, PlayBytes, 10);
-                strcat_P(PlayBytes, PSTR("%"));
-                sendStrXY(PlayBytes, 8, 0);
-                //sprintf(PlayBytes,"%03d",lcdsegs%1000);sendStrXY(PlayBytes,13,0);
-                strcpy(PlayBytes, "000");
-                if ((lcdsegs % 1000) < 10)
-                    itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                else if ((lcdsegs % 1000) < 100)
-                    itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                else
-                    itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                sendStrXY(PlayBytes, 13, 0);
-#endif
-
-#ifdef P8544
-                printtextF(PSTR("Paused"), 0);
-                itoa(newpct, PlayBytes, 10);
-                strcat_P(PlayBytes, PSTR("%"));
-                lcd.setCursor(0, 3);
-                lcd.print(PlayBytes);
-                //sprintf(PlayBytes,"%03d",lcdsegs%1000);lcd.setCursor(13,0);lcd.print(PlayBytes);strcpy(PlayBytes,"000");
-                if ((lcdsegs % 1000) < 10)
-                    itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                else if ((lcdsegs % 1000) < 100)
-                    itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                else
-                    itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                //lcd.setCursor(0,3);lcd.print(PlayBytes);
-                lcd.gotoRc(3, 38);
-                lcd.bitmap(Paused, 1, 6);
-#endif
                 pauseOn = 1;
             }
             if (motorState == 0 && pauseOn == 1)
@@ -648,45 +431,6 @@ void loop(void)
 
                 lcd.setCursor(13, 0);
                 lcd.print(PlayBytes);
-
-#endif
-
-#ifdef OLED1306
-                //sprintf(PlayBytes,"Playing% 3d%%  %03d",newpct,lcdsegs%1000); sendStrXY(PlayBytes,0,0);
-                printtextF(PSTR("Playing"), 0);
-                itoa(newpct, PlayBytes, 10);
-                strcat_P(PlayBytes, PSTR("%"));
-                sendStrXY(PlayBytes, 8, 0);
-                //sprintf(PlayBytes,"%03d",lcdsegs%1000);sendStrXY(PlayBytes,13,0);
-                strcpy(PlayBytes, "000");
-                if ((lcdsegs % 1000) < 10)
-                    itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                else if ((lcdsegs % 1000) < 100)
-                    itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                else
-                    itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                sendStrXY(PlayBytes, 13, 0);
-#endif
-
-#ifdef P8544
-                printtextF(PSTR("Playing"), 0);
-                itoa(newpct, PlayBytes, 10);
-                strcat_P(PlayBytes, PSTR("%"));
-                lcd.setCursor(0, 3);
-                lcd.print(PlayBytes);
-                //sprintf(PlayBytes,"%03d",lcdsegs%1000);lcd.setCursor(13,0);lcd.print(PlayBytes);strcpy(PlayBytes,"000");
-                if ((lcdsegs % 1000) < 10)
-                    itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                else if ((lcdsegs % 1000) < 100)
-                    itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                else
-                    itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                //lcd.setCursor(13,3);
-                //lcd.print(PlayBytes);
-                lcd.gotoRc(3, 38);
-                lcd.bitmap(Play, 1, 6);
 
 #endif
                 pauseOn = 0;
@@ -757,17 +501,11 @@ void seekFile(int pos)
     if (isDir == 1)
     {
         strcat_P(PlayBytes, PSTR(VERSION));
-#ifdef P8544
-        printtext("                 ", 3);
-#endif
     }
     else
     {
         //ltoa(filesize,PlayBytes,10);
         strcat_P(PlayBytes, PSTR("Select File.."));
-#ifdef P8544
-        printtext("                 ", 3);
-#endif
     }
     printtext(PlayBytes, 0);
 
@@ -781,12 +519,6 @@ void stopFile()
     if (start == 1)
     {
         printtextF(PSTR("Stopped"), 0);
-//lcd_clearline(0);
-//lcd.print(F("Stopped"));
-#ifdef P8544
-        lcd.gotoRc(3, 38);
-        lcd.bitmap(Stop, 1, 6);
-#endif
         start = 0;
     }
 }
@@ -814,17 +546,11 @@ void playFile()
             currpct = 100;
             lcdsegs = 0;
             TZXPlay(sfileName); //Load using the short filename
-#ifdef P8544
-            lcd.gotoRc(3, 38);
-            lcd.bitmap(Play, 1, 6);
-#endif
             start = 1;
         }
         else
         {
             printtextF(PSTR("No File Selected"), 1);
-            //lcd_clearline(1);
-            //lcd.print(F("No File Selected"));
         }
     }
 }
@@ -907,140 +633,14 @@ void scrollText(char *text)
     }
     outtext[16] = '\0';
     printtext(outtext, 1);
-//lcd_clearline(1);
-//lcd.print(outtext);
-#endif
-
-#ifdef OLED1306
-    //Text scrolling routine.  Setup for 16x2 screen so will only display 16 chars
-    if (scrollPos < 0)
-        scrollPos = 0;
-    char outtext[17];
-    if (isDir)
-    {
-        outtext[0] = 0x3E;
-        for (int i = 1; i < 16; i++)
-        {
-            int p = i + scrollPos - 1;
-            if (p < strlen(text))
-            {
-                outtext[i] = text[p];
-            }
-            else
-            {
-                outtext[i] = '\0';
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < 16; i++)
-        {
-            int p = i + scrollPos;
-            if (p < strlen(text))
-            {
-                outtext[i] = text[p];
-            }
-            else
-            {
-                outtext[i] = '\0';
-            }
-        }
-    }
-    outtext[16] = '\0';
-    printtext(outtext, 1);
-//lcd_clearline(1);
-//lcd.print(outtext);
-#endif
-
-#ifdef P8544
-    //Text scrolling routine.  Setup for 16x2 screen so will only display 16 chars
-    if (scrollPos < 0)
-        scrollPos = 0;
-    char outtext[15];
-    if (isDir)
-    {
-        outtext[0] = 0x3E;
-        for (int i = 1; i < 14; i++)
-        {
-            int p = i + scrollPos - 1;
-            if (p < strlen(text))
-            {
-                outtext[i] = text[p];
-            }
-            else
-            {
-                outtext[i] = '\0';
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < 14; i++)
-        {
-            int p = i + scrollPos;
-            if (p < strlen(text))
-            {
-                outtext[i] = text[p];
-            }
-            else
-            {
-                outtext[i] = '\0';
-            }
-        }
-    }
-    outtext[14] = '\0';
-    printtext(outtext, 1);
-//lcd_clearline(1);
-//lcd.print(outtext);
 #endif
 }
-
-/*
-void lcd_clearline(int l) {
-  //clear a single line on the LCD
-
-  lcd.setCursor(0,l);
-  lcd.print(F("                    "));
-  lcd.setCursor(0,l);
-}
-*/
 
 void printtextF(const char *text, int l)
 { //Print text to screen.
-
-#ifdef SERIALSCREEN
-    Serial.println(reinterpret_cast<const __FlashStringHelper *>(text));
-#endif
-
 #ifdef LCDSCREEN16x2
     lcd.setCursor(0, l);
     lcd.print(F("                    "));
-    lcd.setCursor(0, l);
-    lcd.print(reinterpret_cast<const __FlashStringHelper *>(text));
-#endif
-
-#ifdef OLED1306
-    if (l == 0)
-    {
-        strncpy_P(line0, text, 16);
-    }
-    else
-    {
-        strncpy_P(line1, text, 16);
-    }
-    /*    u8g.firstPage();
-      do {
-         u8g.drawStr( 0, 15, line0);
-         u8g.drawStr( 0, 30, line1);
-      } while( u8g.nextPage() ); */
-    sendStrXY(line0, 0, 0);
-    sendStrXY(line1, 0, 1);
-#endif
-
-#ifdef P8544
-    lcd.setCursor(0, l);
-    lcd.print(F("              "));
     lcd.setCursor(0, l);
     lcd.print(reinterpret_cast<const __FlashStringHelper *>(text));
 #endif
@@ -1048,28 +648,9 @@ void printtextF(const char *text, int l)
 
 void printtext(char *text, int l)
 { //Print text to screen.
-
-#ifdef SERIALSCREEN
-    Serial.println(text);
-#endif
-
 #ifdef LCDSCREEN16x2
     lcd.setCursor(0, l);
     lcd.print(F("                    "));
-    lcd.setCursor(0, l);
-    lcd.print(text);
-#endif
-
-#ifdef OLED1306
-    setXY(0, l);
-    sendStr("                    ");
-    setXY(0, l);
-    sendStr(text);
-#endif
-
-#ifdef P8544
-    lcd.setCursor(0, l);
-    lcd.print(F("              "));
     lcd.setCursor(0, l);
     lcd.print(text);
 #endif
