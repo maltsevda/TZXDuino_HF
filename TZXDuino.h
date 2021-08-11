@@ -14,13 +14,8 @@
 #define btnStop        5            //Stop Button
 #define btnUp          2            //Up button
 #define btnDown        3            //Down button
-#define btnMotor       6            //Motor Sense (connect pin to gnd to play, NC for pause)
-#define btnRoot        6            //Return to SD card root
-#define scrollSpeed   250           //text scroll delay
-#define scrollWait    3000          //Delay before scrolling starts
 
 PROGMEM const char TZXTape[7] = {'Z','X','T','a','p','e','!'};
-PROGMEM const char TAPcheck[7] = {'T','A','P','t','a','p','.'};
 PROGMEM const char ZX81Filename[9] = {'T','Z','X','D','U','I','N','O',0x9D};
 PROGMEM const char AYFile[8] = {'Z','X','A','Y','E','M','U','L'};           // added additional AY file header check
 PROGMEM const char TAPHdr[20] = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' ',' ',0x1A,0xB,0x0,0xC0,0x0,0x80,0x6E}; //
