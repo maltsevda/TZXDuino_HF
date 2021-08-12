@@ -1,4 +1,5 @@
 #include "TZXDuino.h"
+#include "Button.h"
 
 // PIN Configuration
 
@@ -33,8 +34,14 @@
 // Global Object
 
 LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+
 SdFat sd;     //Initialise Sd card
 SdFile entry; //SD card file
+
+Button<BTN_PLAY> buttonPlay(INPUT);
+Button<BTN_STOP> buttonStop(INPUT);
+Button<BTN_UP> buttonUp(INPUT);
+Button<BTN_DOWN> buttonDown(INPUT);
 
 // -->  Garbage  <--
 
@@ -64,6 +71,7 @@ void TZXSetup();
 void TZXPlay(char *filename);
 void TZXLoop();
 void TZXStop();
+void playFile();
 void stopFile();
 
 //
@@ -179,13 +187,6 @@ void setup()
     else
         printLine(STR_NO_SD_CARD, 0);
 
-    // Buttons
-
-    pinMode(BTN_PLAY, INPUT);
-    pinMode(BTN_STOP, INPUT);
-    pinMode(BTN_UP,   INPUT);
-    pinMode(BTN_DOWN, INPUT);
-
     // Output
 
     pinMode(SND_OUTPUT, OUTPUT);
@@ -200,6 +201,13 @@ void setup()
 
 void loop(void)
 {
+    buttonPlay.tick();
+    buttonStop.tick();
+    if (start == 0)
+    {
+        buttonUp.tick();
+        buttonDown.tick();
+    }
 
     if (start == 1)
     {
@@ -236,50 +244,37 @@ void loop(void)
         sound(LOW); //Keep output LOW while no file is playing.
     }
 
-    if (millis() - timeDiff > 50)
-    {                        // check switch every 50ms
-        timeDiff = millis(); // get current millisecond count
-
-        if (digitalRead(BTN_PLAY) == HIGH)
+    if (buttonPlay.press())
+    {
+        //Handle Play/Pause button
+        if (start == 0)
         {
-            //Handle Play/Pause button
-            if (start == 0)
+            //If no file is play, start playback
+            playFile();
+        }
+        else
+        {
+            //If a file is playing, pause or unpause the file
+            if (pauseOn == 0)
             {
-                //If no file is play, start playback
-                playFile();
-                delay(200);
+                printAt(STR_PAUSED_8, 0, 0);
+                pauseOn = 1;
             }
             else
             {
-                //If a file is playing, pause or unpause the file
-                if (pauseOn == 0)
-                {
-                    printAt(STR_PAUSED_8, 0, 0);
-                    pauseOn = 1;
-                }
-                else
-                {
-                    printAt(STR_PLAYING_8, 0, 0);
-                    pauseOn = 0;
-                }
-            }
-            while (digitalRead(BTN_PLAY) == HIGH)
-            {
-                //prevent button repeats by waiting until the button is released.
-                delay(50);
+                printAt(STR_PLAYING_8, 0, 0);
+                pauseOn = 0;
             }
         }
+    }
 
-        if (digitalRead(BTN_STOP) == HIGH && start == 1)
+    if (buttonStop.press())
+    {
+        if (start == 1)
         {
             stopFile();
-            while (digitalRead(BTN_STOP) == HIGH)
-            {
-                //prevent button repeats by waiting until the button is released.
-                delay(50);
-            }
         }
-        if (digitalRead(BTN_STOP) == HIGH && start == 0 && subdir > 0)
+        else if (start == 0 && subdir > 0)
         {
             fileName[0] = '\0';
             prevSubDir[subdir - 1][0] = '\0';
@@ -302,35 +297,14 @@ void loop(void)
             getMaxFile();
             currentFile = 1;
             seekFile(currentFile);
-            while (digitalRead(BTN_STOP) == HIGH)
-            {
-                //prevent button repeats by waiting until the button is released.
-                delay(50);
-            }
-        }
-
-        if (digitalRead(BTN_UP) == HIGH && start == 0)
-        {
-            //Move up a file in the directory
-            upFile();
-            while (digitalRead(BTN_UP) == HIGH)
-            {
-                //prevent button repeats by waiting until the button is released.
-                delay(50);
-            }
-        }
-
-        if (digitalRead(BTN_DOWN) == HIGH && start == 0)
-        {
-            //Move down a file in the directory
-            downFile();
-            while (digitalRead(BTN_DOWN) == HIGH)
-            {
-                //prevent button repeats by waiting until the button is released.
-                delay(50);
-            }
         }
     }
+
+    if (buttonUp.press() && start == 0)
+        upFile();
+
+    if (buttonDown.press() && start == 0)
+        downFile();
 }
 
 void upFile()
