@@ -1,10 +1,18 @@
 #include "TZXDuino.h"
 
+#define STR_STOPPED_FULL    F("Stopped         ")
+#define STR_ERR_OPEN_FILE   F("Err: Open File  ")
+#define STR_ERR_ID          F("Err: Unknown ID ")
+#define STR_ERR_NOTTZX      F("Err: Not TZXFile")
+#define STR_ERR_NOTAY       F("Err: Not AY File")
+#define STR_ERR_READING     F("Err: Read File  ")
+
 extern SdFile entry;
 extern byte pauseOn;
 
-void printtextF(const char* text, int l);
+size_t printLine(const __FlashStringHelper *sz, uint8_t row);
 void stopFile();
+void sound(uint8_t val);
 
 void clearBuffer()
 {
@@ -27,19 +35,16 @@ void checkForEXT(char *filename)
     { //Check for Tap File.  As these have no header we can skip straight to playing data
         currentTask = PROCESSID;
         currentID = TAP;
-        //printtextF(PSTR("TAP Playing"),0);
     }
     if (checkForP(filename))
     { //Check for P File.  As these have no header we can skip straight to playing data
         currentTask = PROCESSID;
         currentID = ZXP;
-        //printtextF(PSTR("ZX81 P Playing"),0);
     }
     if (checkForO(filename))
     { //Check for O File.  As these have no header we can skip straight to playing data
         currentTask = PROCESSID;
         currentID = ZXO;
-        //printtextF(PSTR("ZX80 O Playing"),0);
     }
     if (checkForAY(filename))
     { //Check for AY File.  As these have no TAP header we must create it and send AY DATA Block after
@@ -47,7 +52,6 @@ void checkForEXT(char *filename)
         currentID = AYO;
         AYPASS = 0;        // Reset AY PASS flags
         hdrptr = HDRSTART; // Start reading from position 1 -> 0x13 [0x00]
-                           //printtextF(PSTR("AY Playing"),0);
     }
 }
 
@@ -56,7 +60,7 @@ void TZXPlay(char *filename)
     Timer1.stop(); //Stop timer interrupt
     if (!entry.open(filename, O_READ))
     { //open file and check for errors
-        printtextF(PSTR("Error Opening File"), 0);
+        printLine(STR_ERR_OPEN_FILE, 0);
     }
     bytesRead = 0;               //start of file
     currentTask = GETFILEHEADER; //First task: search for header
@@ -67,7 +71,7 @@ void TZXPlay(char *filename)
     pinState = LOW; //Always Start on a LOW output for simplicity
     count = 255;    //End of file buffer flush
     EndOfFile = false;
-    digitalWrite(outputPin, pinState);
+    sound(pinState);
     Timer1.setPeriod(1000); //set 1ms wait at start of a file.
 }
 
@@ -155,8 +159,6 @@ void TZXLoop()
 
 void TZXSetup()
 {
-    pinMode(outputPin, OUTPUT);   //Set output pin
-    digitalWrite(outputPin, LOW); //Start output LOW
     isStopped = true;
     pinState = LOW;
     Timer1.initialize(100000); //100ms pause prevents anything bad happening before we're ready
@@ -786,7 +788,7 @@ void TZXProcess()
 
         default:
             //ID Not Recognised - Fall back if non TZX file or unrecognised ID occurs
-            printtextF(PSTR("ID Not Recognised"), 1);
+            printLine(STR_ERR_ID, 1);
             delay(5000);
             stopFile();
             break;
@@ -1288,7 +1290,7 @@ void wave()
                 wasPauseBlock = false;
             }
         }
-        digitalWrite(outputPin, pinState);
+        sound(pinState);
         if (pauseFlipBit == true)
         {
             newTime = 1500;                                  //Set 1.5ms initial pause block
@@ -1412,13 +1414,13 @@ void ReadTZXHeader()
         i = entry.read(tzxHeader, 10);
         if (memcmp_P(tzxHeader, TZXTape, 7) != 0)
         {
-            printtextF(PSTR("Not TZXTape"), 1);
+            printLine(STR_ERR_NOTTZX, 1);
             TZXStop();
         }
     }
     else
     {
-        printtextF(PSTR("Error Reading File"), 0);
+        printLine(STR_ERR_READING, 0);
     }
     bytesRead = 10;
 }
@@ -1434,13 +1436,13 @@ void ReadAYHeader()
         i = entry.read(ayHeader, 8);
         if (memcmp_P(ayHeader, AYFile, 8) != 0)
         {
-            printtextF(PSTR("Not AY File"), 1);
+            printLine(STR_ERR_NOTAY, 1);
             TZXStop();
         }
     }
     else
     {
-        printtextF(PSTR("Error Reading File"), 0);
+        printLine(STR_ERR_READING, 0);
     }
     bytesRead = 0;
 }

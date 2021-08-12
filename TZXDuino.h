@@ -6,8 +6,6 @@
 #include <LiquidCrystal.h>
 #include <SdFat.h>
 
-#define outputPin           9              // Audio Output PIN - Set accordingly to your hardware.
-
 PROGMEM const char TZXTape[7] = {'Z','X','T','a','p','e','!'};
 PROGMEM const char ZX81Filename[9] = {'T','Z','X','D','U','I','N','O',0x9D};
 PROGMEM const char AYFile[8] = {'Z','X','A','Y','E','M','U','L'};           // added additional AY file header check
