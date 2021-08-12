@@ -1,46 +1,10 @@
 #include "TZXDuino.h"
 
 extern SdFile entry;
-extern LiquidCrystal lcd;
 extern byte pauseOn;
-extern unsigned long filesize;
 
 void printtextF(const char* text, int l);
 void stopFile();
-
-void lcdTime()
-{
-    if (millis() - timeDiff2 > 1000)
-    {                         // check switch every second
-        timeDiff2 = millis(); // get current millisecond count
-
-        if (lcdsegs % 10 != 0)
-        {
-            itoa(lcdsegs % 10, PlayBytes, 10);
-            lcd.setCursor(15, 0);
-            lcd.print(PlayBytes);
-        } // ultima cifra 1,2,3,4,5,6,7,8,9
-        else if (lcdsegs % 100 != 0)
-        {
-            itoa(lcdsegs % 100, PlayBytes, 10);
-            lcd.setCursor(14, 0);
-            lcd.print(PlayBytes);
-        } // es 10,20,30,40,50,60,70,80,90,110,120,..
-        else if (lcdsegs % 1000 != 0)
-        {
-            itoa(lcdsegs % 1000, PlayBytes, 10);
-            lcd.setCursor(13, 0);
-            lcd.print(PlayBytes);
-        } // es 100,200,300,400,500,600,700,800,900,1100,..
-        else
-        {
-            lcd.setCursor(13, 0);
-            lcd.print("000");
-        } // es 000,1000,2000,...
-
-        lcdsegs++;
-    }
-}
 
 void clearBuffer()
 {
@@ -93,8 +57,6 @@ void TZXPlay(char *filename)
     if (!entry.open(filename, O_READ))
     { //open file and check for errors
         printtextF(PSTR("Error Opening File"), 0);
-        //lcd_clearline(0);
-        //lcd.print(F("Error Opening File"));
     }
     bytesRead = 0;               //start of file
     currentTask = GETFILEHEADER; //First task: search for header
@@ -159,17 +121,10 @@ void TZXStop()
     isStopped = true;
     entry.close(); //Close file
                    // DEBUGGING Stuff
-    //lcd.setCursor(0,1);
-    //lcd.print(blkchksum,HEX); lcd.print("ck "); lcd.print(bytesRead); lcd.print(" "); lcd.print(ayblklen);
 
     bytesRead = 0; // reset read bytes PlayBytes
     blkchksum = 0; // reset block chksum byte for AY loading routine
     AYPASS = 0;    // reset AY flag
-}
-
-void TZXPause()
-{
-    isStopped = pauseOn;
 }
 
 void TZXLoop()
@@ -194,96 +149,6 @@ void TZXLoop()
             wbuffer[btemppos][workingBuffer ^ 1] = currentPeriod; //add period to the buffer
             interrupts();
             btemppos += 1;
-        }
-    }
-    else
-    {
-
-        if ((pauseOn == 0) && (currpct < 100))
-            lcdTime();
-        newpct = (100 * bytesRead) / filesize;
-        if (currpct == 100)
-        {
-            currpct = 0;
-
-#ifdef LCDSCREEN16x2
-            lcd.setCursor(8, 0);
-            lcd.print(newpct);
-            lcd.print("%");
-
-#endif
-
-#ifdef OLED1306
-            if (newpct < 10)
-            {
-                setXY(8, 0);
-                sendChar(48 + newpct % 10);
-            }
-            else if (newpct < 100)
-            {
-                setXY(8, 0);
-                sendChar(48 + newpct / 10);
-                sendChar(48 + newpct % 10);
-            }
-            else
-            {
-                setXY(8, 0);
-                sendChar('1');
-                sendChar('0');
-                sendChar('0');
-            }
-
-            sendChar('%');
-#endif
-
-#ifdef P8544
-            lcd.setCursor(0, 3);
-            lcd.print(newpct);
-            lcd.print("%");
-
-#endif
-        }
-        if ((newpct > currpct) && (newpct % 1 == 0))
-        {
-
-#ifdef LCDSCREEN16x2
-            lcd.setCursor(8, 0);
-            lcd.print(newpct);
-            lcd.print("%");
-#endif
-
-#ifdef OLED1306
-
-            if (newpct < 10)
-            {
-                setXY(8, 0);
-                sendChar(48 + newpct % 10);
-            }
-            else if (newpct < 100)
-            {
-                setXY(8, 0);
-                sendChar(48 + newpct / 10);
-                sendChar(48 + newpct % 10);
-            }
-            else
-            {
-                setXY(8, 0);
-                sendChar('1');
-                sendChar('0');
-                sendChar('0');
-            }
-
-            sendChar('%');
-
-#endif
-
-#ifdef P8544
-            lcd.setCursor(0, 3);
-            lcd.print(newpct);
-            lcd.print("%");
-#endif
-
-            currpct = newpct;
         }
     }
 }
@@ -604,13 +469,6 @@ void TZXProcess()
             //Process ID30 - Text Description
             if (r = ReadByte(bytesRead) == 1)
             {
-                //Show info on screen - removed until bigger screen used
-                //byte j = outByte;
-                //for(byte i=0; i<j; i++) {
-                //  if(ReadByte(bytesRead)==1) {
-                //    lcd.print(char(outByte));
-                //  }
-                //}
                 bytesRead += outByte;
             }
             currentTask = GETID;
@@ -927,19 +785,8 @@ void TZXProcess()
             break;
 
         default:
-            //stopFile();
             //ID Not Recognised - Fall back if non TZX file or unrecognised ID occurs
-
-#ifdef LCDSCREEN16x2
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("ID? ");
-            lcd.setCursor(4, 0);
-            lcd.print(String(currentID, HEX));
-            lcd.setCursor(0, 1);
-            lcd.print(String(bytesRead, HEX) + " - L: " + String(loopCount, DEC));
-#endif
-
+            printtextF(PSTR("ID Not Recognised"), 1);
             delay(5000);
             stopFile();
             break;
@@ -986,9 +833,6 @@ void StandardBlock()
 
     case PAUSE:
         //Close block with a pause
-        // DEBUG
-        //lcd.setCursor(0,1);
-        //lcd.print(blkchksum,HEX); lcd.print("ck ptr:"); lcd.print(hdrptr);
 
         if ((currentID != TAP) && (currentID != AYO))
         { // Check if we have !=AYO too
@@ -1569,16 +1413,12 @@ void ReadTZXHeader()
         if (memcmp_P(tzxHeader, TZXTape, 7) != 0)
         {
             printtextF(PSTR("Not TZXTape"), 1);
-            //lcd_clearline(1);
-            //lcd.print(F("Not TZXTape"));
             TZXStop();
         }
     }
     else
     {
         printtextF(PSTR("Error Reading File"), 0);
-        //lcd_clearline(0);
-        //lcd.print(F("Error Reading File"));
     }
     bytesRead = 10;
 }
@@ -1595,16 +1435,12 @@ void ReadAYHeader()
         if (memcmp_P(ayHeader, AYFile, 8) != 0)
         {
             printtextF(PSTR("Not AY File"), 1);
-            //lcd_clearline(0);
-            //lcd.print(F("Not AY File"));
             TZXStop();
         }
     }
     else
     {
         printtextF(PSTR("Error Reading File"), 0);
-        //lcd_clearline(0);
-        //lcd.print(F("Error Reading File"));
     }
     bytesRead = 0;
 }

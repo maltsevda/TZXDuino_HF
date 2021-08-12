@@ -1,6 +1,11 @@
 
 #include "TZXDuino.h"
 
+#define btnPlay        4            //Play Button
+#define btnStop        5            //Stop Button
+#define btnUp          2            //Up button
+#define btnDown        3            //Down button
+
 const int rs = A0, en = A1, d4 = A2, d5 = A3, d6 = A4, d7 = A5;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7); // set the LCD address to 0x27 for a 16 chars and 2 line display
 uint8_t SpecialChar[8] = {0x00, 0x10, 0x08, 0x04, 0x02, 0x01, 0x00, 0x00};
@@ -23,6 +28,12 @@ int currentFile = 1;        //Current position in directory
 int maxFile = 0;            //Total number of files in directory
 byte isDir = 0;             //Is the current file a directory
 unsigned long timeDiff = 0; //button debounce
+unsigned long timeDiff2 = 0;
+unsigned int lcdsegs = 0;
+
+char PlayBytes[16];
+byte currpct = 100;
+byte newpct = 0;
 
 byte UP = 0; //Next File, down button pressed
 
@@ -76,6 +87,29 @@ void loop(void)
     {
         //TZXLoop only runs if a file is playing, and keeps the buffer full.
         TZXLoop();
+
+        // percent of playing and right-side counter 000
+        if (btemppos > buffsize)
+        {
+            if ((pauseOn == 0) && (currpct < 100))
+                lcdTime();
+            newpct = (100 * bytesRead) / filesize;
+            if (currpct == 100)
+            {
+                lcd.setCursor(8,0);
+                lcd.print(newpct);
+                lcd.print("%");
+                currpct = 0;
+            }
+            if ((newpct > currpct) && (newpct % 1 == 0))
+            {
+                lcd.setCursor(8,0);
+                lcd.print(newpct);
+                lcd.print("%");
+                currpct = newpct;
+            }
+        }
+
     }
     else
     {
@@ -100,43 +134,14 @@ void loop(void)
                 //If a file is playing, pause or unpause the file
                 if (pauseOn == 0)
                 {
-                    printtextF(PSTR("Paused"), 0);
-                    itoa(newpct, PlayBytes, 10);
-                    strcat_P(PlayBytes, PSTR("%"));
-                    lcd.setCursor(8, 0);
-                    lcd.print(PlayBytes);
-                    strcpy(PlayBytes, "000");
-                    if ((lcdsegs % 1000) < 10)
-                        itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                    else if ((lcdsegs % 1000) < 100)
-                        itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                    else
-                        itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                    lcd.setCursor(13, 0);
-                    lcd.print(PlayBytes);
-
+                    lcd.setCursor(0,0);
+                    lcd.print(F("Paused "));
                     pauseOn = 1;
                 }
                 else
                 {
-                    printtextF(PSTR("Playing"), 0);
-                    itoa(newpct, PlayBytes, 10);
-                    strcat_P(PlayBytes, PSTR("%"));
-                    lcd.setCursor(8, 0);
-                    lcd.print(PlayBytes);
-
-                    strcpy(PlayBytes, "000");
-                    if ((lcdsegs % 1000) < 10)
-                        itoa(lcdsegs % 10, PlayBytes + 2, 10);
-                    else if ((lcdsegs % 1000) < 100)
-                        itoa(lcdsegs % 1000, PlayBytes + 1, 10);
-                    else
-                        itoa(lcdsegs % 1000, PlayBytes, 10);
-
-                    lcd.setCursor(13, 0);
-                    lcd.print(PlayBytes);
-
+                    lcd.setCursor(0,0);
+                    lcd.print(F("Playing"));
                     pauseOn = 0;
                 }
             }
@@ -274,7 +279,7 @@ void seekFile(int pos)
     PlayBytes[0] = '\0';
     if (isDir == 1)
     {
-        strcat_P(PlayBytes, PSTR(VERSION));
+        strcat_P(PlayBytes, PSTR("TZXDuino 1.9"));
     }
     else
     {
@@ -371,4 +376,38 @@ void printtext(const char *text, int l)
     lcd.print(F("                    "));
     lcd.setCursor(0, l);
     lcd.print(text);
+}
+
+void lcdTime()
+{
+    if (millis() - timeDiff2 > 1000)
+    {                         // check switch every second
+        timeDiff2 = millis(); // get current millisecond count
+
+        if (lcdsegs % 10 != 0)
+        {
+            itoa(lcdsegs % 10, PlayBytes, 10);
+            lcd.setCursor(15, 0);
+            lcd.print(PlayBytes);
+        } // ultima cifra 1,2,3,4,5,6,7,8,9
+        else if (lcdsegs % 100 != 0)
+        {
+            itoa(lcdsegs % 100, PlayBytes, 10);
+            lcd.setCursor(14, 0);
+            lcd.print(PlayBytes);
+        } // es 10,20,30,40,50,60,70,80,90,110,120,..
+        else if (lcdsegs % 1000 != 0)
+        {
+            itoa(lcdsegs % 1000, PlayBytes, 10);
+            lcd.setCursor(13, 0);
+            lcd.print(PlayBytes);
+        } // es 100,200,300,400,500,600,700,800,900,1100,..
+        else
+        {
+            lcd.setCursor(13, 0);
+            lcd.print("000");
+        } // es 000,1000,2000,...
+
+        lcdsegs++;
+    }
 }

@@ -7,13 +7,6 @@
 #include <SdFat.h>
 
 #define outputPin           9              // Audio Output PIN - Set accordingly to your hardware.
-#define VERSION "TZXDuino 1.9"
-#define LCDSCREEN16x2   1
-
-#define btnPlay        4            //Play Button
-#define btnStop        5            //Stop Button
-#define btnUp          2            //Up button
-#define btnDown        3            //Down button
 
 PROGMEM const char TZXTape[7] = {'Z','X','T','a','p','e','!'};
 PROGMEM const char ZX81Filename[9] = {'T','Z','X','D','U','I','N','O',0x9D};
@@ -54,7 +47,6 @@ PROGMEM const char TAPHdr[20] = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' '
 #define ZXP                 0xFD    //ZX81 P File
 #define TAP                 0xFE    //Tap File Mode
 #define EOF                 0xFF    //End of file
-
 
 //TZX File Tasks
 #define GETFILEHEADER         0
@@ -145,17 +137,8 @@ volatile byte currentChar=0;
 byte pass=0;
 unsigned long debugCount=0;
 byte EndOfFile=false;
-//byte firstTime=true;
 
-byte currpct = 100;
-byte newpct = 0;
-byte spinpos = 0;
-unsigned long timeDiff2 = 0;
-unsigned int lcdsegs = 0;
-unsigned int offset = 2;
 int TSXspeedup = 1;
 int BAUDRATE = 1200;
-
-char PlayBytes[16];
 
 #endif
