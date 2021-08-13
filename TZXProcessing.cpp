@@ -1,4 +1,132 @@
-#include "TZXDuino.h"
+#include <TimerOne.h>
+#include <SdFat.h>
+
+//TZX block list - uncomment as supported
+#define ID10                0x10    //Standard speed data block
+#define ID11                0x11    //Turbo speed data block
+#define ID12                0x12    //Pure tone
+#define ID13                0x13    //Sequence of pulses of various lengths
+#define ID14                0x14    //Pure data block
+//#define ID15                0x15    //Direct recording block -- TBD - curious to load OTLA files using direct recording (22KHz)
+//#define ID18                0x18    //CSW recording block
+//#define ID19                0x19    //Generalized data block
+#define ID20                0x20    //Pause (silence) ot 'Stop the tape' command
+#define ID21                0x21    //Group start
+#define ID22                0x22    //Group end
+#define ID23                0x23    //Jump to block
+#define ID24                0x24    //Loop start
+#define ID25                0x25    //Loop end
+#define ID26                0x26    //Call sequence
+#define ID27                0x27    //Return from sequence
+#define ID28                0x28    //Select block
+#define ID2A                0x2A    //Stop the tape is in 48K mode
+#define ID2B                0x2B    //Set signal level
+#define ID30                0x30    //Text description
+#define ID31                0x31    //Message block
+#define ID32                0x32    //Archive info
+#define ID33                0x33    //Hardware type
+#define ID35                0x35    //Custom info block
+#define ID4B                0x4B    //Kansas City block (MSX/BBC/Acorn/...)
+#define IDPAUSE				0x59    //Custom Pause processing
+#define ID5A                0x5A    //Glue block (90 dec, ASCII Letter 'Z')
+#define AYO                 0xFB    //AY file
+#define ZXO                 0xFC    //ZX80 O file
+#define ZXP                 0xFD    //ZX81 P File
+#define TAP                 0xFE    //Tap File Mode
+#define EOF                 0xFF    //End of file
+
+//TZX File Tasks
+#define GETFILEHEADER         0
+#define GETID                 1
+#define PROCESSID             2
+#define GETAYHEADER           3
+
+//TZX ID Tasks
+#define READPARAM             0
+#define PILOT                 1
+#define SYNC1                 2
+#define SYNC2                 3
+#define DATA                  4
+#define PAUSE                 5
+
+//Buffer size
+#define buffsize              64
+
+//Spectrum Standards
+#define PILOTLENGTH           619
+#define SYNCFIRST             191
+#define SYNCSECOND            210
+#define ZEROPULSE             244
+#define ONEPULSE              489
+#define PILOTNUMBERL          8063
+#define PILOTNUMBERH          3223
+#define PAUSELENGTH           1000
+
+//ZX81 Standards
+#define ZX80PULSE                 160
+#define ZX80BITGAP                1442
+
+//ZX81 Pulse Patterns - Zero Bit  - HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, GAP
+//                    - One Bit   - HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, GAP
+
+// AY Header offset start
+#define HDRSTART              0
+
+//Keep track of which ID, Task, and Block Task we're dealing with
+byte currentID = 0;
+byte currentTask = 0;
+byte currentBlockTask = 0;
+
+//Temporarily store for a pulse period before loading it into the buffer.
+word currentPeriod=1;
+
+//ISR Variables
+volatile byte pos = 0;
+volatile word wbuffer[buffsize+1][2];
+volatile byte morebuff = HIGH;
+volatile byte workingBuffer=0;
+volatile byte isStopped=false;
+volatile byte pinState=LOW;
+volatile byte isPauseBlock = false;
+volatile byte wasPauseBlock = false;
+volatile byte intError = false;
+
+//Main Variables
+byte AYPASS = 0;
+byte hdrptr = 0;
+byte blkchksum = 0;
+word ayblklen = 0;
+byte btemppos = 0;
+byte copybuff = LOW;
+unsigned long bytesRead=0;
+unsigned long bytesToRead=0;
+byte pulsesCountByte=0;
+word pilotPulses=0;
+word pilotLength=0;
+word sync1Length=0;
+word sync2Length=0;
+word zeroPulse=0;
+word onePulse=0;
+word TstatesperSample=0;
+byte usedBitsInLastByte=8;
+word loopCount=0;
+byte seqPulses=0;
+unsigned long loopStart=0;
+word pauseLength=0;
+word temppause=0;
+byte outByte=0;
+word outWord=0;
+unsigned long outLong=0;
+byte count=128;
+volatile byte currentBit=0;
+volatile byte currentByte=0;
+volatile byte currentChar=0;
+byte pass=0;
+unsigned long debugCount=0;
+byte EndOfFile=false;
+
+int TSXspeedup = 1;
+int BAUDRATE = 1200;
 
 #define STR_STOPPED_FULL    F("Stopped         ")
 #define STR_ERR_OPEN_FILE   F("Err: Open File  ")
@@ -12,17 +140,36 @@ const char ZX81Filename[] PROGMEM = {'T','Z','X','D','U','I','N','O',0x9D};
 const char AYFile[] PROGMEM = {'Z','X','A','Y','E','M','U','L'};           // added additional AY file header check
 const char TAPHdr[] PROGMEM = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' ',' ',0x1A,0xB,0x0,0xC0,0x0,0x80,0x6E};
 
- SdFile entry;
-extern byte pauseOn;
+SdFile entry;
 
 size_t printLine(const __FlashStringHelper *sz, uint8_t row);
+bool isFileStopped();
 void stopFile();
 void sound(uint8_t val);
 
+int ReadByte(unsigned long pos);
+int ReadWord(unsigned long pos);
+int ReadLong(unsigned long pos);
+int ReadDword(unsigned long pos);
+void checkForEXT(char *filename);
+void TZXProcess();
+void wave();
+void StandardBlock();
+void writeData();
+void writeData4B();
+void writeHeader();
+void ZX81FilenameBlock();
+void ZX8081DataBlock();
+void ZX80ByteWrite();
+void PureToneBlock();
+void PureDataBlock();
+void PulseSequenceBlock();
+void ReadTZXHeader();
+void ReadAYHeader();
+
 void clearBuffer()
 {
-
-    for (int i = 0; i <= buffsize; i++)
+   for (int i = 0; i <= buffsize; i++)
     {
         wbuffer[i][0] = 0;
         wbuffer[i][1] = 0;
@@ -34,32 +181,6 @@ word TickToUs(word ticks)
     return (word)((((float)ticks) / 3.5) + 0.5);
 }
 
-void checkForEXT(char *filename)
-{
-    if (checkForTap(filename))
-    { //Check for Tap File.  As these have no header we can skip straight to playing data
-        currentTask = PROCESSID;
-        currentID = TAP;
-    }
-    if (checkForP(filename))
-    { //Check for P File.  As these have no header we can skip straight to playing data
-        currentTask = PROCESSID;
-        currentID = ZXP;
-    }
-    if (checkForO(filename))
-    { //Check for O File.  As these have no header we can skip straight to playing data
-        currentTask = PROCESSID;
-        currentID = ZXO;
-    }
-    if (checkForAY(filename))
-    { //Check for AY File.  As these have no TAP header we must create it and send AY DATA Block after
-        currentTask = GETAYHEADER;
-        currentID = AYO;
-        AYPASS = 0;        // Reset AY PASS flags
-        hdrptr = HDRSTART; // Start reading from position 1 -> 0x13 [0x00]
-    }
-}
-
 void TZXPlay(char *filename)
 {
     Timer1.stop(); //Stop timer interrupt
@@ -68,6 +189,7 @@ void TZXPlay(char *filename)
         printLine(STR_ERR_OPEN_FILE, 0);
     }
     bytesRead = 0;               //start of file
+    ayblklen = entry.fileSize() + 3; // add 3 file header, data byte and chksum byte to file length
     currentTask = GETFILEHEADER; //First task: search for header
     checkForEXT(filename);
     currentBlockTask = READPARAM; //First block task is to read in parameters
@@ -124,6 +246,32 @@ bool checkForAY(char *filename)
     return false;
 }
 
+void checkForEXT(char *filename)
+{
+    if (checkForTap(filename))
+    { //Check for Tap File.  As these have no header we can skip straight to playing data
+        currentTask = PROCESSID;
+        currentID = TAP;
+    }
+    if (checkForP(filename))
+    { //Check for P File.  As these have no header we can skip straight to playing data
+        currentTask = PROCESSID;
+        currentID = ZXP;
+    }
+    if (checkForO(filename))
+    { //Check for O File.  As these have no header we can skip straight to playing data
+        currentTask = PROCESSID;
+        currentID = ZXO;
+    }
+    if (checkForAY(filename))
+    { //Check for AY File.  As these have no TAP header we must create it and send AY DATA Block after
+        currentTask = GETAYHEADER;
+        currentID = AYO;
+        AYPASS = 0;        // Reset AY PASS flags
+        hdrptr = HDRSTART; // Start reading from position 1 -> 0x13 [0x00]
+    }
+}
+
 void TZXStop()
 {
     Timer1.stop(); //Stop timer
@@ -141,7 +289,7 @@ void TZXLoop()
     noInterrupts(); //Pause interrupts to prevent var reads and copy values out
     copybuff = morebuff;
     morebuff = LOW;
-    isStopped = pauseOn;
+    isStopped = isFileStopped();
     interrupts();
     if (copybuff == HIGH)
     {

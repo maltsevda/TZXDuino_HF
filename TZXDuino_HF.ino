@@ -1,4 +1,5 @@
-#include "TZXDuino.h"
+#include <LiquidCrystal.h>
+#include <SdFat.h>
 #include "Button.h"
 
 // PIN Configuration
@@ -51,22 +52,29 @@ char workDir[SD_MAX_WORKDIR] = { '/' };
 char fileName[SD_MAX_FILENAME];
 char shortFileName[13];
 uint32_t fileSize;
+bool fileIsDir;
 
-// -->  Garbage  <--
+// Player State
 
-byte start = 0;             //Currently playing flag
-byte pauseOn = 0;           //Pause state
-unsigned long timeDiff2 = 0;
-unsigned int lcdsegs = 0;
-byte currpct = 100;
-byte newpct = 0;
+#define MODE_BROWSE         0
+#define MODE_PLAYING        1
+#define MODE_PAUSED         2
+
+uint8_t playerMode = MODE_BROWSE;
+
+unsigned long counterTime = 0;
+uint16_t counter = 0;
+uint8_t percentages = 0;
+
+// TZX Interface
 
 void TZXSetup();
 void TZXPlay(char *filename);
 void TZXLoop();
 void TZXStop();
-void playFile();
-void stopFile();
+
+extern byte isStopped;
+extern unsigned long bytesRead;
 
 //
 // Sound Functions
@@ -118,7 +126,7 @@ void printCounter(unsigned int value)
     }
 }
 
-void printProgress(uint8_t value, bool eraseTail = false)
+void printPercentages(uint8_t value, bool eraseTail = false)
 {
     lcd.setCursor(8, 0);
     lcd.print(value);
@@ -187,14 +195,14 @@ bool parentDir()
     return changeDir(workDir, false);
 }
 
-void readCurrentFileInfo(SdFile* entry)
+void readCurrentFileInfo(SdFile* file)
 {
-    entry->getName(fileName, SD_MAX_FILENAME);
-    entry->getSFN(shortFileName);
-    fileSize = entry->isDir() ? 0 : entry->fileSize();
-    ayblklen = fileSize + 3; // add 3 file header, data byte and chksum byte to file length
+    file->getName(fileName, SD_MAX_FILENAME);
+    file->getSFN(shortFileName);
+    fileSize = file->fileSize();
+    fileIsDir = file->isDir();
 
-    if (entry->isDir())
+    if (fileIsDir)
         printLine(STR_DIR, 0);
     else
         printLine(STR_FILE, 0);
@@ -222,6 +230,7 @@ void openPrev()
     SdFile file;
     uint16_t index = SdFile::cwd()->curPosition() / 32;
 
+    // skip self index
     if (index > 0)
         --index;
 
@@ -245,7 +254,26 @@ void openPrev()
 }
 
 //
-// -->  Garbage  <--
+// Global File Operations
+//
+
+bool isFileStopped()
+{
+    return playerMode != MODE_PLAYING;
+}
+
+void stopFile()
+{
+    TZXStop();
+    if (playerMode == MODE_PLAYING || playerMode == MODE_PAUSED)
+    {
+        printLine(STR_STOPPED_FULL, 0);
+        playerMode = MODE_BROWSE;
+    }
+}
+
+//
+// Setup
 //
 
 void setup()
@@ -257,7 +285,7 @@ void setup()
 
     // SD
 
-    pinMode(SD_CHIPSELECT, OUTPUT); //Setup SD card chipselect pin
+    pinMode(SD_CHIPSELECT, OUTPUT);
     if (sd.begin(SD_CHIPSELECT, SPI_FULL_SPEED))
     {
         changeDir("/");
@@ -266,134 +294,130 @@ void setup()
     else
         printLine(STR_NO_SD_CARD, 0);
 
-    // Output
+    // Sound Output
 
     pinMode(SND_OUTPUT, OUTPUT);
     sound(LOW);
 
-    // Garbage
+    //Setup TZX specific options
 
-    TZXSetup();             //Setup TZX specific options
+    TZXSetup();
 }
 
-void loop(void)
+//
+// Loops and Modes
+//
+
+void loopBrowse()
 {
+    sound(LOW);
+
     buttonPlay.tick();
     buttonStop.tick();
-    if (start == 0)
-    {
-        buttonUp.tick();
-        buttonDown.tick();
-    }
-
-    if (start == 1)
-    {
-        //TZXLoop only runs if a file is playing, and keeps the buffer full.
-        TZXLoop();
-
-        // percent of playing and right-side counter 000
-        if (btemppos > buffsize)
-        {
-            if ((pauseOn == 0) && (currpct < 100))
-            {
-                if (millis() - timeDiff2 > 1000)
-                {                         // check switch every second
-                    timeDiff2 = millis(); // get current millisecond count
-                    printCounter(lcdsegs);
-                    lcdsegs++;
-                }
-            }
-            newpct = (100 * bytesRead) / fileSize;
-            if (currpct == 100)
-            {
-                printProgress(newpct);
-                currpct = 0;
-            }
-            if ((newpct > currpct) && (newpct % 1 == 0))
-            {
-                printProgress(newpct);
-                currpct = newpct;
-            }
-        }
-    }
-    else
-    {
-        sound(LOW); //Keep output LOW while no file is playing.
-    }
+    buttonUp.tick();
+    buttonDown.tick();
 
     if (buttonPlay.press())
     {
-        //Handle Play/Pause button
-        if (start == 0)
+        if (fileIsDir)
         {
-            if (fileSize == 0)
-            {
-                changeDir(shortFileName);
+            if (changeDir(shortFileName))
                 openNext();
-            }
-            else
-                playFile();
         }
         else
         {
-            //If a file is playing, pause or unpause the file
-            if (pauseOn == 0)
+            if (SdFile::cwd()->exists(shortFileName))
             {
-                printAt(STR_PAUSED_8, 0, 0);
-                pauseOn = 1;
+                playerMode = MODE_PLAYING;
+                counterTime = millis();
+                counter = 0;
+                percentages = UINT8_MAX;    // set unreal value for first printing
+                TZXPlay(shortFileName);
+                printLine(STR_PLAYING_FULL, 0);
+                printLine(fileName, 1);
             }
             else
             {
-                printAt(STR_PLAYING_8, 0, 0);
-                pauseOn = 0;
+                printLine(STR_NO_FILE, 1);
             }
         }
     }
 
     if (buttonStop.press())
     {
-        if (start == 1)
-        {
-            stopFile();
-        }
-        else
-        {
-            if (parentDir())
-                openNext();
-        }
+        if (parentDir())
+            openNext();
     }
 
-    if (buttonUp.press() && start == 0)
+    if (buttonUp.press())
         openPrev();
 
-    if (buttonDown.press() && start == 0)
+    if (buttonDown.press())
         openNext();
 }
 
-void stopFile()
+void loopPlaying()
 {
-    TZXStop();
-    if (start == 1)
+    //TZXLoop only runs if a file is playing, and keeps the buffer full.
+    TZXLoop();
+
+    buttonPlay.tick();
+    buttonStop.tick();
+
+    // percents of playing and right-side counter 000
+    uint8_t newPercentages = (100 * bytesRead) / fileSize;
+    if (percentages != newPercentages)
     {
-        printLine(STR_STOPPED_FULL, 0);
-        start = 0;
+        percentages = newPercentages;
+        printPercentages(percentages);
     }
+
+    if (percentages < 100)
+    {
+        // check switch every second
+        if (millis() - counterTime > 1000)
+        {
+            counterTime = millis();
+            printCounter(counter++);
+        }
+    }
+
+    if (buttonPlay.press())
+    {
+        printAt(STR_PAUSED_8, 0, 0);
+        playerMode = MODE_PAUSED;
+    }
+
+    if (buttonStop.press())
+        stopFile();
 }
 
-void playFile()
+void loopPaused()
 {
-    if (SdFile::cwd()->exists(shortFileName))
+    // Part of TZXLoop
+    isStopped = isFileStopped();
+
+    sound(LOW);
+
+    buttonPlay.tick();
+    buttonStop.tick();
+
+    if (buttonPlay.press())
     {
-        printLine(STR_PLAYING_FULL, 0);
-        pauseOn = 0;
-        printLine(fileName, 1);
-        currpct = 100;
-        lcdsegs = 0;
-        TZXPlay(shortFileName); //Load using the short filename
-        start = 1;
+        printAt(STR_PLAYING_8, 0, 0);
+        playerMode = MODE_PLAYING;
     }
-    else
+
+    if (buttonStop.press())
+        stopFile();
+}
+
+void loop(void)
+{
+    switch (playerMode)
     {
-        printLine(STR_NO_FILE, 1);
+    case MODE_BROWSE: loopBrowse(); break;
+    case MODE_PLAYING: loopPlaying(); break;
+    case MODE_PAUSED: loopPaused(); break;
     }
 }
