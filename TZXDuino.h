@@ -6,12 +6,6 @@
 #include <LiquidCrystal.h>
 #include <SdFat.h>
 
-PROGMEM const char TZXTape[7] = {'Z','X','T','a','p','e','!'};
-PROGMEM const char ZX81Filename[9] = {'T','Z','X','D','U','I','N','O',0x9D};
-PROGMEM const char AYFile[8] = {'Z','X','A','Y','E','M','U','L'};           // added additional AY file header check
-PROGMEM const char TAPHdr[20] = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' ',' ',0x1A,0xB,0x0,0xC0,0x0,0x80,0x6E}; //
-//const char TAPHdr[24] = {0x13,0x0,0x0,0x3,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',0x1A,0xB,0x0,0xC0,0x0,0x80,0x52,0x1C,0xB,0xFF};
-
 //TZX block list - uncomment as supported
 #define ID10                0x10    //Standard speed data block
 #define ID11                0x11    //Turbo speed data block
@@ -38,7 +32,7 @@ PROGMEM const char TAPHdr[20] = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' '
 #define ID33                0x33    //Hardware type
 #define ID35                0x35    //Custom info block
 #define ID4B                0x4B    //Kansas City block (MSX/BBC/Acorn/...)
-#define IDPAUSE				      0x59	  //Custom Pause processing
+#define IDPAUSE				0x59    //Custom Pause processing
 #define ID5A                0x5A    //Glue block (90 dec, ASCII Letter 'Z')
 #define AYO                 0xFB    //AY file
 #define ZXO                 0xFC    //ZX80 O file

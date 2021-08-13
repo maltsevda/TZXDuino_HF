@@ -1,44 +1,12 @@
-/*
-    Ультра лёгкая и быстрая библиотека для энкодера, энкодера с кнопкой или просто кнопки
-
-    Документация:
-    GitHub: https://github.com/GyverLibs/EncButton
-
-    Возможности:
-    - Максимально быстрое чтение пинов для AVR (ATmega328/ATmega168, ATtiny85/ATtiny13)
-    - Оптимизированный вес
-    - Быстрые и лёгкие алгоритмы кнопки и энкодера
-    - Энкодер: поворот, нажатый поворот, быстрый поворот, счётчик
-    - Кнопка: антидребезг, клик, несколько кликов, счётчик кликов, удержание, режим step
-    - Подключение - только HIGH PULL!
-    - Опциональный режим callback (+22б SRAM на каждый экземпляр)
-
-    AlexGyver, alex@alexgyver.ru
-    https://alexgyver.ru/
-    MIT License
-
-    Версии:
-    v1.1 - пуллап отдельныи методом
-    v1.2 - можно передать конструктору параметр INPUT_PULLUP / INPUT(умолч)
-    v1.3 - виртуальное зажатие кнопки энкодера вынесено в отдельную функцию + мелкие улучшения
-    v1.4 - обработка нажатия и отпускания кнопки
-    v1.5 - добавлен виртуальный режим
-    v1.6 - оптимизация работы в прерывании
-    v1.6.1 - PULLUP по умолчанию
-    v1.7 - большая оптимизация памяти, переделан FastIO
-    v1.8 - индивидуальная настройка таймаута удержания кнопки (была общая на всех)
-*/
-
 #ifndef __BUTTON_H__
 #define __BUTTON_H__
+
+#include <Arduino.h>
+#include "FastIO_v2.h"
 
 #define EB_DEB      80      // дебаунс кнопки
 #define EB_HOLD     1000    // таймаут удержания кнопки
 #define EB_STEP     500     // период срабатывания степ
-#define EB_CLICK    400	    // таймаут накликивания
-
-#include <Arduino.h>
-#include "FastIO_v2.h"
 
 // флаг макро
 #define _setFlag(x) (flags |= 1 << x)
@@ -61,7 +29,8 @@ public:
     }
 
     // установить таймаут удержания кнопки для isHold(), мс (до 30 000)
-    void setHoldTimeout(int tout) {
+    void setHoldTimeout(int tout)
+    {
         _holdT = tout >> 7;
     }
 
@@ -118,47 +87,18 @@ public:
     bool isStep() { return checkState(7); }
     bool step() { return isStep(); }
 
-    // статус кнопки
-    bool state() { return F_fastRead(_PIN); }
-
-    // имеются клики
-    bool hasClicks(uint8_t numClicks)
-    {
-        if (clicks == numClicks && _readFlag(6)) {
-            _clrFlag(6);
-            return 1;
-        }
-        return 0;
-    }
-
-    // имеются клики
-    uint8_t hasClicks()
-    {
-        if (_readFlag(6)) {
-            _clrFlag(6);
-            return clicks;
-        } return 0;
-    }
-
-    // счётчик кликов
-    uint8_t clicks = 0;
-
 private:
 
     void poolBtn()
     {
-        uint32_t thisMls = millis();
-        uint32_t debounce = thisMls - _debTimer;
+        unsigned long thisMls = millis();
+        unsigned long debounce = thisMls - _debTimer;
         if (_btnState) {                                                	// кнопка нажата
             if (!_readFlag(3)) {                                          	// и не была нажата ранее
                 if (debounce > EB_DEB) {                                   	// и прошел дебаунс
                     _setFlag(3);                                            // флаг кнопка была нажата
                     _debTimer = thisMls;                                    // сброс таймаутов
                     EBState = 8;                                           	// кнопка нажата
-                }
-                if (debounce > EB_CLICK) {									// кнопка нажата после EB_CLICK
-                    clicks = 0;												// сбросить счётчик и флаг кликов
-                    flags &= ~0b01100000;
                 }
             } else {                                                      	// кнопка уже была нажата
                 if (!_readFlag(4)) {                                        // и удержание ещё не зафиксировано
@@ -182,11 +122,10 @@ private:
             if (_readFlag(3)) {                                           	// но была нажата
                 if (debounce > EB_DEB && !_readFlag(4) && !_readFlag(2)) {	// энкодер не трогали и не удерживали - это клик
                     EBState = 5;
-                    clicks++;
                 } else EBState = 9;                                         // кнопка отпущена
                 flags &= ~0b00011100;                                       // clear 2 3 4
                 _debTimer = thisMls;                                        // сброс таймаута
-            } else if (clicks > 0 && debounce > EB_CLICK && !_readFlag(5)) flags |= 0b01100000;	 // флаг на клики
+            }
         }
     }
 
@@ -200,7 +139,7 @@ private:
         return 0;
     }
 
-    uint32_t _debTimer = 0;
+    unsigned long _debTimer = 0;
     uint8_t _lastState = 0, EBState = 0;
     bool _btnState = 0, _isrFlag = 0;
     uint8_t flags = 0;

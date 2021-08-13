@@ -7,7 +7,12 @@
 #define STR_ERR_NOTAY       F("Err: Not AY File")
 #define STR_ERR_READING     F("Err: Read File  ")
 
-extern SdFile entry;
+const char TZXTape[] PROGMEM = {'Z','X','T','a','p','e','!'};
+const char ZX81Filename[] PROGMEM = {'T','Z','X','D','U','I','N','O',0x9D};
+const char AYFile[] PROGMEM = {'Z','X','A','Y','E','M','U','L'};           // added additional AY file header check
+const char TAPHdr[] PROGMEM = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' ',' ',0x1A,0xB,0x0,0xC0,0x0,0x80,0x6E};
+
+ SdFile entry;
 extern byte pauseOn;
 
 size_t printLine(const __FlashStringHelper *sz, uint8_t row);

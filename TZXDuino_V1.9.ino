@@ -35,37 +35,31 @@
 
 LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 
-SdFat sd;     //Initialise Sd card
-SdFile entry; //SD card file
+SdFat sd;
 
 Button<BTN_PLAY> buttonPlay(INPUT);
 Button<BTN_STOP> buttonStop(INPUT);
-Button<BTN_UP> buttonUp(INPUT);
+Button<BTN_UP>   buttonUp(INPUT);
 Button<BTN_DOWN> buttonDown(INPUT);
+
+// File System Info
+
+#define SD_MAX_WORKDIR      128
+#define SD_MAX_FILENAME     32
+
+char workDir[SD_MAX_WORKDIR] = { '/' };
+char fileName[SD_MAX_FILENAME];
+char shortFileName[13];
+uint32_t fileSize;
 
 // -->  Garbage  <--
 
-#define filenameLength 100 //Maximum length for scrolling filename
-
-char fileName[filenameLength + 1]; //Current filename
-char sfileName[13];                //Short filename variable
-char prevSubDir[3][25];
-int subdir = 0;
-unsigned long filesize;    // filesize used for dimensioning AY files
-
 byte start = 0;             //Currently playing flag
 byte pauseOn = 0;           //Pause state
-int currentFile = 1;        //Current position in directory
-int maxFile = 0;            //Total number of files in directory
-byte isDir = 0;             //Is the current file a directory
-unsigned long timeDiff = 0; //button debounce
 unsigned long timeDiff2 = 0;
 unsigned int lcdsegs = 0;
-
 byte currpct = 100;
 byte newpct = 0;
-
-byte UP = 0; //Next File, down button pressed
 
 void TZXSetup();
 void TZXPlay(char *filename);
@@ -81,36 +75,6 @@ void stopFile();
 void sound(uint8_t val)
 {
     digitalWrite(SND_OUTPUT, val);
-}
-
-//
-// SD Card Functions
-//
-
-bool changeDir(const char* path, bool setCWD = true)
-{
-    bool isRoot = (path == nullptr) || (path[0] == 0)
-        || (path[0] == '/' && path[1] == 0);
-
-    if (isRoot)
-    {
-        sd.vwd()->close();
-        sd.vwd()->openRoot(&sd);
-    }
-    else
-    {
-        FatFile dir;
-        if (!dir.open(sd.vwd(), path, O_READ))
-            return false;
-        if (!dir.isDir())
-            return false;
-        *(sd.vwd()) = dir;
-    }
-
-    if (setCWD)
-        FatFile::setCwd(sd.vwd());
-
-    return true;
 }
 
 //
@@ -169,6 +133,118 @@ void printProgress(uint8_t value, bool eraseTail = false)
 }
 
 //
+// SD Card Functions
+//
+
+bool changeDir(const char* path, bool updateWorkDir = true)
+{
+    if (path[0] == 0 || (path[0] == '/' && path[1] == 0))
+    {
+        // switch to root folder
+        sd.chdir(true);
+        SdFile::cwd()->rewind();
+        if (updateWorkDir)
+        {
+            workDir[0] = '/';
+            workDir[1] = 0;
+        }
+        return true;
+    }
+    else
+    {
+        if (sd.chdir(path, true))
+        {
+            SdFile::cwd()->rewind();
+            if (updateWorkDir)
+            {
+                if (path[0] == '/')
+                    strcpy(workDir, path);
+                else
+                {
+                    strcat(workDir, path);
+                    strcat(workDir, "/");
+                }
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+bool parentDir()
+{
+    if (workDir[0] == '/' && workDir[1] == 0)
+        return false;
+
+    uint8_t index = 0;
+    for (uint8_t i = 0; workDir[i]; ++i)
+    {
+        if (workDir[i] == '/' && workDir[i + 1])
+            index = i + 1;
+    }
+    workDir[index] = 0;
+
+    return changeDir(workDir, false);
+}
+
+void readCurrentFileInfo(SdFile* entry)
+{
+    entry->getName(fileName, SD_MAX_FILENAME);
+    entry->getSFN(shortFileName);
+    fileSize = entry->isDir() ? 0 : entry->fileSize();
+    ayblklen = fileSize + 3; // add 3 file header, data byte and chksum byte to file length
+
+    if (entry->isDir())
+        printLine(STR_DIR, 0);
+    else
+        printLine(STR_FILE, 0);
+    printLine(fileName, 1);
+}
+
+void openNext()
+{
+    SdFile file;
+    if (file.openNext(SdFile::cwd(), O_READ))
+    {
+        readCurrentFileInfo(&file);
+        file.close();
+    }
+    else
+    {
+        // TODO: fix this
+        printLine(STR_EMPTY, 0);
+        printLine(STR_EMPTY, 1);
+    }
+}
+
+void openPrev()
+{
+    SdFile file;
+    uint16_t index = SdFile::cwd()->curPosition() / 32;
+
+    if (index > 0)
+        --index;
+
+    while (index > 0)
+    {
+        --index;
+        if (file.open(SdFile::cwd(), index, O_READ))
+        {
+            readCurrentFileInfo(&file);
+            file.close();
+            break;
+        }
+    }
+
+    if (index == 0)
+    {
+        // TODO: fix this
+        printLine(STR_EMPTY, 0);
+        printLine(STR_EMPTY, 1);
+    }
+}
+
+//
 // -->  Garbage  <--
 //
 
@@ -183,7 +259,10 @@ void setup()
 
     pinMode(SD_CHIPSELECT, OUTPUT); //Setup SD card chipselect pin
     if (sd.begin(SD_CHIPSELECT, SPI_FULL_SPEED))
+    {
         changeDir("/");
+        openNext();
+    }
     else
         printLine(STR_NO_SD_CARD, 0);
 
@@ -195,8 +274,6 @@ void setup()
     // Garbage
 
     TZXSetup();             //Setup TZX specific options
-    getMaxFile();           //get the total number of files in the directory
-    seekFile(currentFile);  //move to the first file in the directory
 }
 
 void loop(void)
@@ -226,7 +303,7 @@ void loop(void)
                     lcdsegs++;
                 }
             }
-            newpct = (100 * bytesRead) / filesize;
+            newpct = (100 * bytesRead) / fileSize;
             if (currpct == 100)
             {
                 printProgress(newpct);
@@ -249,8 +326,13 @@ void loop(void)
         //Handle Play/Pause button
         if (start == 0)
         {
-            //If no file is play, start playback
-            playFile();
+            if (fileSize == 0)
+            {
+                changeDir(shortFileName);
+                openNext();
+            }
+            else
+                playFile();
         }
         else
         {
@@ -274,101 +356,18 @@ void loop(void)
         {
             stopFile();
         }
-        else if (start == 0 && subdir > 0)
+        else
         {
-            fileName[0] = '\0';
-            prevSubDir[subdir - 1][0] = '\0';
-            subdir--;
-            switch (subdir)
-            {
-            case 1:
-                changeDir(strcat(strcat(fileName, "/"), prevSubDir[0]));
-                break;
-            case 2:
-                changeDir(strcat(strcat(strcat(strcat(fileName, "/"), prevSubDir[0]), "/"), prevSubDir[1]));
-                break;
-            case 3:
-                changeDir(strcat(strcat(strcat(strcat(strcat(strcat(fileName, "/"), prevSubDir[0]), "/"), prevSubDir[1]), "/"), prevSubDir[2]));
-                break;
-            default:
-                changeDir("/");
-            }
-            //Return to prev Dir of the SD card.
-            getMaxFile();
-            currentFile = 1;
-            seekFile(currentFile);
+            if (parentDir())
+                openNext();
         }
     }
 
     if (buttonUp.press() && start == 0)
-        upFile();
+        openPrev();
 
     if (buttonDown.press() && start == 0)
-        downFile();
-}
-
-void upFile()
-{
-    //move up a file in the directory
-    currentFile--;
-    if (currentFile < 1)
-    {
-        getMaxFile();
-        currentFile = maxFile;
-    }
-    UP = 1;
-    seekFile(currentFile);
-}
-
-void downFile()
-{
-    //move down a file in the directory
-    currentFile++;
-    if (currentFile > maxFile)
-    {
-        currentFile = 1;
-    }
-    UP = 0;
-    seekFile(currentFile);
-}
-
-void seekFile(int pos)
-{
-    //move to a set position in the directory, store the filename, and display the name on screen.
-    if (UP == 1)
-    {
-        entry.cwd()->rewind();
-        for (int i = 1; i <= currentFile - 1; i++)
-        {
-            entry.openNext(entry.cwd(), O_READ);
-            entry.close();
-        }
-    }
-
-    if (currentFile == 1)
-    {
-        entry.cwd()->rewind();
-    }
-    entry.openNext(entry.cwd(), O_READ);
-    entry.getName(fileName, filenameLength);
-    entry.getSFN(sfileName);
-    filesize = entry.fileSize();
-    ayblklen = filesize + 3; // add 3 file header, data byte and chksum byte to file length
-    if (entry.isDir() || !strcmp(sfileName, "ROOT"))
-    {
-        isDir = 1;
-    }
-    else
-    {
-        isDir = 0;
-    }
-    entry.close();
-
-    if (isDir == 1)
-        printLine(STR_DIR, 0);
-    else
-        printLine(STR_FILE, 0);
-    printLine(fileName, 1);
+        openNext();
 }
 
 void stopFile()
@@ -383,57 +382,18 @@ void stopFile()
 
 void playFile()
 {
-    if (isDir == 1)
+    if (SdFile::cwd()->exists(shortFileName))
     {
-        //change directory, if fileName="ROOT" then return to the root directory
-        //SDFat has no easy way to move up a directory, so returning to root is the easiest way.
-        //each directory (except the root) must have a file called ROOT (no extension)
-
-        if (!strcmp(fileName, "ROOT"))
-        {
-            subdir = 0;
-            changeDir("/");
-        }
-        else
-        {
-            if (subdir > 0)
-                entry.cwd()->getName(prevSubDir[subdir - 1], filenameLength);
-            changeDir(fileName);
-            subdir++;
-        }
-        getMaxFile();
-        currentFile = 1;
-        seekFile(currentFile);
+        printLine(STR_PLAYING_FULL, 0);
+        pauseOn = 0;
+        printLine(fileName, 1);
+        currpct = 100;
+        lcdsegs = 0;
+        TZXPlay(shortFileName); //Load using the short filename
+        start = 1;
     }
     else
     {
-        if (entry.cwd()->exists(sfileName))
-        {
-            printLine(STR_PLAYING_FULL, 0);
-            pauseOn = 0;
-            printLine(fileName, 1);
-            currpct = 100;
-            lcdsegs = 0;
-            TZXPlay(sfileName); //Load using the short filename
-            start = 1;
-        }
-        else
-        {
-            printLine(STR_NO_FILE, 1);
-        }
+        printLine(STR_NO_FILE, 1);
     }
-}
-
-void getMaxFile()
-{
-    //gets the total files in the current directory and stores the number in maxFile
-
-    entry.cwd()->rewind();
-    maxFile = 0;
-    while (entry.openNext(entry.cwd(), O_READ))
-    {
-        entry.close();
-        maxFile++;
-    }
-    entry.cwd()->rewind();
 }
