@@ -1,5 +1,8 @@
+#include "Config.h"
 #include <TimerOne.h>
 #include <SdFat.h>
+#include "SDCard.h"
+#include "Texts.h"
 
 //TZX block list - uncomment as supported
 #define ID10                0x10    //Standard speed data block
@@ -98,7 +101,6 @@ byte blkchksum = 0;
 word ayblklen = 0;
 byte btemppos = 0;
 byte copybuff = LOW;
-unsigned long bytesRead=0;
 unsigned long bytesToRead=0;
 byte pulsesCountByte=0;
 word pilotPulses=0;
@@ -114,9 +116,6 @@ byte seqPulses=0;
 unsigned long loopStart=0;
 word pauseLength=0;
 word temppause=0;
-byte outByte=0;
-word outWord=0;
-unsigned long outLong=0;
 byte count=128;
 volatile byte currentBit=0;
 volatile byte currentByte=0;
@@ -128,30 +127,17 @@ byte EndOfFile=false;
 int TSXspeedup = 1;
 int BAUDRATE = 1200;
 
-#define STR_STOPPED_FULL    F("Stopped         ")
-#define STR_ERR_OPEN_FILE   F("Err: Open File  ")
-#define STR_ERR_ID          F("Err: Unknown ID ")
-#define STR_ERR_NOTTZX      F("Err: Not TZXFile")
-#define STR_ERR_NOTAY       F("Err: Not AY File")
-#define STR_ERR_READING     F("Err: Read File  ")
-
 const char TZXTape[] PROGMEM = {'Z','X','T','a','p','e','!'};
 const char ZX81Filename[] PROGMEM = {'T','Z','X','D','U','I','N','O',0x9D};
-const char AYFile[] PROGMEM = {'Z','X','A','Y','E','M','U','L'};           // added additional AY file header check
 const char TAPHdr[] PROGMEM = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' ',' ',0x1A,0xB,0x0,0xC0,0x0,0x80,0x6E};
-
-SdFile entry;
+const char AYFile[] PROGMEM = {'Z','X','A','Y','E','M','U','L'};
 
 size_t printLine(const __FlashStringHelper *sz, uint8_t row);
 bool isFileStopped();
 void stopFile();
 void sound(uint8_t val);
 
-int ReadByte(unsigned long pos);
-int ReadWord(unsigned long pos);
-int ReadLong(unsigned long pos);
-int ReadDword(unsigned long pos);
-void checkForEXT(char *filename);
+void checkForEXT();
 void TZXProcess();
 void wave();
 void StandardBlock();
@@ -181,17 +167,17 @@ word TickToUs(word ticks)
     return (word)((((float)ticks) / 3.5) + 0.5);
 }
 
-void TZXPlay(char *filename)
+void TZXPlay()
 {
     Timer1.stop(); //Stop timer interrupt
-    if (!entry.open(filename, O_READ))
+    if (!openFile())
     { //open file and check for errors
         printLine(STR_ERR_OPEN_FILE, 0);
     }
     bytesRead = 0;               //start of file
-    ayblklen = entry.fileSize() + 3; // add 3 file header, data byte and chksum byte to file length
+    ayblklen = getFileSize() + 3; // add 3 file header, data byte and chksum byte to file length
     currentTask = GETFILEHEADER; //First task: search for header
-    checkForEXT(filename);
+    checkForEXT();
     currentBlockTask = READPARAM; //First block task is to read in parameters
     clearBuffer();
     isStopped = false;
@@ -199,72 +185,28 @@ void TZXPlay(char *filename)
     count = 255;    //End of file buffer flush
     EndOfFile = false;
     sound(pinState);
-    Timer1.setPeriod(1000); //set 1ms wait at start of a file.
+    Timer1.setPeriod(1000); //set 1ms wait at start of a file
 }
 
-bool checkForTap(char *filename)
+void checkForEXT()
 {
-    //Check for TAP file extensions as these have no header
-    byte len = strlen(filename);
-    if (strstr_P(strlwr(filename + (len - 4)), PSTR(".tap")))
-    {
-        return true;
-    }
-    return false;
-}
-
-bool checkForP(char *filename)
-{
-    //Check for TAP file extensions as these have no header
-    byte len = strlen(filename);
-    if (strstr_P(strlwr(filename + (len - 2)), PSTR(".p")))
-    {
-        return true;
-    }
-    return false;
-}
-
-bool checkForO(char *filename)
-{
-    //Check for TAP file extensions as these have no header
-    byte len = strlen(filename);
-    if (strstr_P(strlwr(filename + (len - 2)), PSTR(".o")))
-    {
-        return true;
-    }
-    return false;
-}
-
-bool checkForAY(char *filename)
-{
-    //Check for AY file extensions as these have no header
-    byte len = strlen(filename);
-    if (strstr_P(strlwr(filename + (len - 3)), PSTR(".ay")))
-    {
-        return true;
-    }
-    return false;
-}
-
-void checkForEXT(char *filename)
-{
-    if (checkForTap(filename))
-    { //Check for Tap File.  As these have no header we can skip straight to playing data
+    if (checkFileExt(PSTR(".tap")))
+    { //Check for Tap File  As these have no header we can skip straight to playing data
         currentTask = PROCESSID;
         currentID = TAP;
     }
-    if (checkForP(filename))
-    { //Check for P File.  As these have no header we can skip straight to playing data
+    if (checkFileExt(PSTR(".p")))
+    { //Check for P File  As these have no header we can skip straight to playing data
         currentTask = PROCESSID;
         currentID = ZXP;
     }
-    if (checkForO(filename))
-    { //Check for O File.  As these have no header we can skip straight to playing data
+    if (checkFileExt(PSTR(".o")))
+    { //Check for O File  As these have no header we can skip straight to playing data
         currentTask = PROCESSID;
         currentID = ZXO;
     }
-    if (checkForAY(filename))
-    { //Check for AY File.  As these have no TAP header we must create it and send AY DATA Block after
+    if (checkFileExt(PSTR(".ay")))
+    { //Check for AY File  As these have no TAP header we must create it and send AY DATA Block after
         currentTask = GETAYHEADER;
         currentID = AYO;
         AYPASS = 0;        // Reset AY PASS flags
@@ -276,7 +218,7 @@ void TZXStop()
 {
     Timer1.stop(); //Stop timer
     isStopped = true;
-    entry.close(); //Close file
+    closeFile(); //Close file
                    // DEBUGGING Stuff
 
     bytesRead = 0; // reset read bytes PlayBytes
@@ -340,7 +282,7 @@ void TZXProcess()
     if (currentTask == GETID)
     {
         //grab 1 byte ID
-        if (ReadByte(bytesRead) == 1)
+        if (readByte() == 1)
         {
             currentID = outByte;
         }
@@ -365,15 +307,15 @@ void TZXProcess()
             switch (currentBlockTask)
             {
             case READPARAM:
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     pauseLength = outWord;
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     bytesToRead = outWord + 1;
                 }
-                if (r = ReadByte(bytesRead) == 1)
+                if (r = readByte() == 1)
                 {
                     if (outByte == 0)
                     {
@@ -406,39 +348,39 @@ void TZXProcess()
             switch (currentBlockTask)
             {
             case READPARAM:
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     pilotLength = TickToUs(outWord);
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     sync1Length = TickToUs(outWord);
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     sync2Length = TickToUs(outWord);
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     zeroPulse = TickToUs(outWord);
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     onePulse = TickToUs(outWord);
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     pilotPulses = outWord;
                 }
-                if (r = ReadByte(bytesRead) == 1)
+                if (r = readByte() == 1)
                 {
                     usedBitsInLastByte = outByte;
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     pauseLength = outWord;
                 }
-                if (r = ReadLong(bytesRead) == 3)
+                if (r = readLong() == 3)
                 {
                     bytesToRead = outLong + 1;
                 }
@@ -455,11 +397,11 @@ void TZXProcess()
             //Process ID12 - Pure Tone Block
             if (currentBlockTask == READPARAM)
             {
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     pilotLength = TickToUs(outWord);
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     pilotPulses = outWord;
                     //DebugBlock("Pilot Pulses", pilotPulses);
@@ -476,7 +418,7 @@ void TZXProcess()
             //Process ID13 - Sequence of Pulses
             if (currentBlockTask == READPARAM)
             {
-                if (r = ReadByte(bytesRead) == 1)
+                if (r = readByte() == 1)
                 {
                     seqPulses = outByte;
                 }
@@ -492,23 +434,23 @@ void TZXProcess()
             //process ID14 - Pure Data Block
             if (currentBlockTask == READPARAM)
             {
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     zeroPulse = TickToUs(outWord);
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     onePulse = TickToUs(outWord);
                 }
-                if (r = ReadByte(bytesRead) == 1)
+                if (r = readByte() == 1)
                 {
                     usedBitsInLastByte = outByte;
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     pauseLength = outWord;
                 }
-                if (r = ReadLong(bytesRead) == 3)
+                if (r = readLong() == 3)
                 {
                     bytesToRead = outLong + 1;
                 }
@@ -523,19 +465,19 @@ void TZXProcess()
         case ID15:
           //process ID15 - Direct Recording
           if(currentBlockTask==READPARAM) {
-            if(r=ReadWord(bytesRead)==2) {
+            if(r=readWord()==2) {
               //Number of T-states per sample (bit of data) 79 or 158 - 22.6757uS for 44.1KHz
               TstatesperSample = TickToUs(outWord);
             }
-            if(r=ReadWord(bytesRead)==2) {
+            if(r=readWord()==2) {
               //Pause after this block in milliseconds
               pauseLength = outWord;
             }
-            if(r=ReadByte(bytesRead)==1) {
+            if(r=readByte()==1) {
             //Used bits in last byte (other bits should be 0)
               usedBitsInLastByte = outByte;
             }
-            if(r=ReadLong(bytesRead)==3) {
+            if(r=readLong()==3) {
               // Length of samples' data
               bytesToRead = outLong+1;
             }
@@ -549,7 +491,7 @@ void TZXProcess()
             /*  //Old ID20
         case ID20:
           //process ID20 - Pause Block
-          if(r=ReadWord(bytesRead)==2) {
+          if(r=readWord()==2) {
             if(outWord>0) {
               currentPeriod = pauseLength;
               bitSet(currentPeriod, 15);
@@ -560,7 +502,7 @@ void TZXProcess()
 
         case ID20:
             //process ID20 - Pause Block
-            if (r = ReadWord(bytesRead) == 2)
+            if (r = readWord() == 2)
             {
                 if (outWord > 0)
                 {
@@ -576,7 +518,7 @@ void TZXProcess()
 
         case ID21:
             //Process ID21 - Group Start
-            if (r = ReadByte(bytesRead) == 1)
+            if (r = readByte() == 1)
             {
                 bytesRead += outByte;
             }
@@ -590,7 +532,7 @@ void TZXProcess()
 
         case ID24:
             //Process ID24 - Loop Start
-            if (r = ReadWord(bytesRead) == 2)
+            if (r = readWord() == 2)
             {
                 loopCount = outWord;
                 loopStart = bytesRead;
@@ -622,7 +564,7 @@ void TZXProcess()
 
         case ID30:
             //Process ID30 - Text Description
-            if (r = ReadByte(bytesRead) == 1)
+            if (r = readByte() == 1)
             {
                 bytesRead += outByte;
             }
@@ -631,11 +573,11 @@ void TZXProcess()
 
         case ID31:
             //Process ID31 - Message block
-            if (r = ReadByte(bytesRead) == 1)
+            if (r = readByte() == 1)
             {
                 // dispayTime = outByte;
             }
-            if (r = ReadByte(bytesRead) == 1)
+            if (r = readByte() == 1)
             {
                 bytesRead += outByte;
             }
@@ -645,7 +587,7 @@ void TZXProcess()
         case ID32:
             //Process ID32 - Archive Info
             //Block Skipped until larger screen used
-            if (ReadWord(bytesRead) == 2)
+            if (readWord() == 2)
             {
                 bytesRead += outWord;
             }
@@ -655,7 +597,7 @@ void TZXProcess()
         case ID33:
             //Process ID32 - Archive Info
             //Block Skipped until larger screen used
-            if (ReadByte(bytesRead) == 1)
+            if (readByte() == 1)
             {
                 bytesRead += (long(outByte) * 3);
             }
@@ -666,7 +608,7 @@ void TZXProcess()
             //Process ID35 - Custom Info Block
             //Block Skipped
             bytesRead += 0x10;
-            if (r = ReadDword(bytesRead) == 4)
+            if (r = readDword() == 4)
             {
                 bytesRead += outLong;
             }
@@ -678,33 +620,33 @@ void TZXProcess()
             switch (currentBlockTask)
             {
             case READPARAM:
-                if (r = ReadDword(bytesRead) == 4)
+                if (r = readDword() == 4)
                 { // Data size to read
                     bytesToRead = outLong - 12;
                 }
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 { // Pause after block in ms
                     pauseLength = outWord;
                 }
                 if (TSXspeedup == 0)
                 {
-                    if (r = ReadWord(bytesRead) == 2)
+                    if (r = readWord() == 2)
                     { // T-states each pilot pulse
                         pilotLength = TickToUs(outWord);
                     }
-                    if (r = ReadWord(bytesRead) == 2)
+                    if (r = readWord() == 2)
                     { // Number of pilot pulses
                         pilotPulses = outWord;
                     }
-                    if (r = ReadWord(bytesRead) == 2)
+                    if (r = readWord() == 2)
                     { // T-states 0 bit pulse
                         zeroPulse = TickToUs(outWord);
                     }
-                    if (r = ReadWord(bytesRead) == 2)
+                    if (r = readWord() == 2)
                     { // T-states 1 bit pulse
                         onePulse = TickToUs(outWord);
                     }
-                    ReadWord(bytesRead);
+                    readWord();
                 }
                 else
                 {
@@ -737,21 +679,6 @@ void TZXProcess()
 
                 } //TSX_SPEEDUP
 
-                /*              if(r=ReadByte(bytesRead)==1) {  // BitCfg
-// No needed if only MSX is supported
-                oneBitPulses =  outByte & 0x0f;       //(default:4)
-                zeroBitPulses = outByte >> 4;         //(default:2)
-                if (!oneBitPulses) oneBitPulses = 16;
-                if (!zeroBitPulses) zeroBitPulses = 16;
-              }
-              if(r=ReadByte(bytesRead)==1) {  // ByteCfg
-// No needed if only MSX is supported
-                startBits = (outByte >> 6) & 3;       //(default:1)
-                startBitValue = (outByte >> 5) & 1;   //(default:0)
-                stopBits = (outByte >> 3) & 3;        //(default:2)
-                stopBitValue = (outByte >> 2) & 1;    //(default:1)
-                endianness = outByte & 1;             //0:LSb 1:MSb (default:0)
-              }*/
                 currentBlockTask = PILOT;
                 break;
 
@@ -786,11 +713,11 @@ void TZXProcess()
             {
             case READPARAM:
                 pauseLength = PAUSELENGTH;
-                if (r = ReadWord(bytesRead) == 2)
+                if (r = readWord() == 2)
                 {
                     bytesToRead = outWord + 1;
                 }
-                if (r = ReadByte(bytesRead) == 1)
+                if (r = readByte() == 1)
                 {
                     if (outByte == 0)
                     {
@@ -1022,7 +949,7 @@ void PulseSequenceBlock()
     //Pulse Sequence Block - String of pulses each with a different length
     //Mainly used in speedload blocks
     byte r = 0;
-    if (r = ReadWord(bytesRead) == 2)
+    if (r = readWord() == 2)
     {
         currentPeriod = TickToUs(outWord);
     }
@@ -1128,7 +1055,7 @@ void writeData4B()
     else if (currentBit == 0 && bytesToRead != 0)
     {
         //Read new byte
-        if (r = ReadByte(bytesRead) == 1)
+        if (r = readByte() == 1)
         {
             bytesToRead += -1;
             currentByte = outByte;
@@ -1206,7 +1133,7 @@ void ZX8081DataBlock()
     byte r;
     if (currentBit == 0)
     { //Check for byte end/first byte
-        if (r = ReadByte(bytesRead) == 1)
+        if (r = readByte() == 1)
         { //Read in a byte
             currentByte = outByte;
             bytesToRead += -1;
@@ -1278,7 +1205,7 @@ void writeData()
     byte r;
     if (currentBit == 0)
     { //Check for byte end/first byte
-        if (r = ReadByte(bytesRead) == 1)
+        if (r = readByte() == 1)
         { //Read in a byte
             currentByte = outByte;
             if (AYPASS == 5)
@@ -1492,110 +1419,22 @@ void wave()
     Timer1.setPeriod(newTime + 4); //Finally set the next pulse length
 }
 
-int ReadByte(unsigned long pos)
-{
-    //Read a byte from the file, and move file position on one if successful
-    byte out[1];
-    int i = 0;
-    if (entry.seekSet(pos))
-    {
-        i = entry.read(out, 1);
-        if (i == 1)
-            bytesRead += 1;
-    }
-    outByte = out[0];
-    //blkchksum = blkchksum ^ out[0];
-    return i;
-}
-
-int ReadWord(unsigned long pos)
-{
-    //Read 2 bytes from the file, and move file position on two if successful
-    byte out[2];
-    int i = 0;
-    if (entry.seekSet(pos))
-    {
-        i = entry.read(out, 2);
-        if (i == 2)
-            bytesRead += 2;
-    }
-    outWord = word(out[1], out[0]);
-    //blkchksum = blkchksum ^ out[0] ^ out[1];
-    return i;
-}
-
-int ReadLong(unsigned long pos)
-{
-    //Read 3 bytes from the file, and move file position on three if successful
-    byte out[3];
-    int i = 0;
-    if (entry.seekSet(pos))
-    {
-        i = entry.read(out, 3);
-        if (i == 3)
-            bytesRead += 3;
-    }
-    outLong = (word(out[2], out[1]) << 8) | out[0];
-    //blkchksum = blkchksum ^ out[0] ^ out[1] ^ out[2];
-    return i;
-}
-
-int ReadDword(unsigned long pos)
-{
-    //Read 4 bytes from the file, and move file position on four if successful
-    byte out[4];
-    int i = 0;
-    if (entry.seekSet(pos))
-    {
-        i = entry.read(out, 4);
-        if (i == 4)
-            bytesRead += 4;
-    }
-    outLong = (word(out[3], out[2]) << 16) | word(out[1], out[0]);
-    //blkchksum = blkchksum ^ out[0] ^ out[1] ^ out[2] ^ out[3];
-    return i;
-}
-
 void ReadTZXHeader()
 {
-    //Read and check first 10 bytes for a TZX header
-    char tzxHeader[11];
-    int i = 0;
-
-    if (entry.seekSet(0))
+    if (!checkFileHeader(TZXTape, 10, 7))
     {
-        i = entry.read(tzxHeader, 10);
-        if (memcmp_P(tzxHeader, TZXTape, 7) != 0)
-        {
-            printLine(STR_ERR_NOTTZX, 1);
-            TZXStop();
-        }
+        printLine(STR_ERR_NOTTZX, 1);
+        TZXStop();
     }
-    else
-    {
-        printLine(STR_ERR_READING, 0);
-    }
-    bytesRead = 10;
 }
 
 void ReadAYHeader()
 {
-    //Read and check first 8 bytes for a TZX header
-    char ayHeader[9];
-    int i = 0;
-
-    if (entry.seekSet(0))
+    if (!checkFileHeader(AYFile, 8, 8))
     {
-        i = entry.read(ayHeader, 8);
-        if (memcmp_P(ayHeader, AYFile, 8) != 0)
-        {
-            printLine(STR_ERR_NOTAY, 1);
-            TZXStop();
-        }
+        printLine(STR_ERR_NOTAY, 1);
+        TZXStop();
     }
-    else
-    {
-        printLine(STR_ERR_READING, 0);
-    }
+    // TODO: a bug?
     bytesRead = 0;
 }

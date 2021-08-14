@@ -2,7 +2,6 @@
 #define __BUTTON_H__
 
 #include <Arduino.h>
-#include "FastIO_v2.h"
 
 #define EB_DEB      80      // дебаунс кнопки
 #define EB_HOLD     1000    // таймаут удержания кнопки
@@ -46,7 +45,7 @@ public:
             // если S2 не указан (кнопка) или указан KEY или выбран вирт. энкодер с кнопкой или кнопка
             if (_PIN < 252)
             {
-                _btnState = F_fastRead(_PIN);    // обычная кнопка
+                _btnState = digitalRead(_PIN);    // обычная кнопка
                 poolBtn();
             }
         }
