@@ -1,7 +1,7 @@
-#include "Display.h"
-#include <LiquidCrystal.h>
 #include "Config.h"
+#include "Display.h"
 #include "Texts.h"  // STR_EMPTY
+#include <LiquidCrystal.h>
 
 LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 

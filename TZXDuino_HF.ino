@@ -1,8 +1,8 @@
 #include "Config.h"
+#include "Texts.h"
 #include "Display.h"
 #include "Button.h"
 #include "SDCard.h"
-#include "Texts.h"
 
 // Global Object
 

@@ -1,6 +1,8 @@
 #ifndef __TEXTS_H__
 #define __TEXTS_H__
 
+#include <Arduino.h>
+
 #define STR_EMPTY           F("                ")
 
 #define STR_DIR             F("Dir             ")

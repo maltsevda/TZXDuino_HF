@@ -170,5 +170,6 @@ void writeSampleData();
 void sound(uint8_t val);
 bool isFileStopped();
 void stopFile();
+void printError(const __FlashStringHelper *sz);
 
 #endif // __TZXFILE_H__

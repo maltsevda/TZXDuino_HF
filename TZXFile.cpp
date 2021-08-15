@@ -1,9 +1,8 @@
-#include "TZXFile.h"
-#include <TimerOne.h>
 #include "Config.h"
-#include "SDCard.h"
-#include "Display.h"
+#include "TZXFile.h"
 #include "Texts.h"
+#include "SDCard.h"
+#include <TimerOne.h>
 
 PROGMEM const char TZXTape[7] = {'Z', 'X', 'T', 'a', 'p', 'e', '!'};
 PROGMEM const char TAPcheck[7] = {'T', 'A', 'P', 't', 'a', 'p', '.'};
