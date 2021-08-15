@@ -24,14 +24,6 @@ unsigned long outLong;
 
 // Private Functions
 
-void resetCurrentFileInfo()
-{
-    *fileName = 0;
-    *shortFileName = 0;
-    fileSize = 0;
-    fileIsDir = false;
-}
-
 bool isRootPath(const char* path)
 {
     return path[0] == '/' && path[1] == 0;
@@ -39,8 +31,6 @@ bool isRootPath(const char* path)
 
 bool changeDir(const char* path, bool updateWorkDir)
 {
-    resetCurrentFileInfo();
-
     if (path[0] == 0 || isRootPath(path))
     {
         // switch to root folder
@@ -72,6 +62,14 @@ bool changeDir(const char* path, bool updateWorkDir)
     return false;
 }
 
+void resetCurrentFileInfo()
+{
+    *fileName = 0;
+    *shortFileName = 0;
+    fileSize = 0;
+    fileIsDir = false;
+}
+
 void readCurrentFileInfo()
 {
     if (file.isOpen())
@@ -100,7 +98,12 @@ bool setupSD(uint8_t csPin)
 
 bool childDir()
 {
-    return changeDir(shortFileName, true);
+    if (changeDir(shortFileName, true))
+    {
+        resetCurrentFileInfo();
+        return true;
+    }
+    return false;
 }
 
 bool parentDir()
@@ -118,7 +121,12 @@ bool parentDir()
     }
     workDir[index] = 0;
 
-    return changeDir(workDir, false);
+    if (changeDir(workDir, false))
+    {
+        resetCurrentFileInfo();
+        return true;
+    }
+    return false;
 }
 
 bool nextFile()

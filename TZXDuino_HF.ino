@@ -42,19 +42,24 @@ void sound(uint8_t val)
     digitalWrite(SND_OUTPUT, val);
 }
 
-void printFileInfo()
-{
-    if (isDir())
-        printLine(STR_DIR, 0);
-    else
-        printLine(STR_FILE, 0);
-    printLine(getFileName(), 1);
-}
-
 void printEmptyDir()
 {
     printLine(STR_DIR, 0);
     printLine(STR_EMPTY_DIR, 1);
+}
+
+void printFileInfo()
+{
+    if (*getFileName())
+    {
+        if (isDir())
+            printLine(STR_DIR, 0);
+        else
+            printLine(STR_FILE, 0);
+        printLine(getFileName(), 1);
+    }
+    else
+        printEmptyDir();
 }
 
 void setPlayerMode(uint8_t newPlayerMode)
