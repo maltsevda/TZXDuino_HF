@@ -63,3 +63,9 @@ void printPercentages(uint8_t value, bool eraseTail = false)
             lcd.print(' ');
     }
 }
+
+void printError(const __FlashStringHelper *sz)
+{
+    printLine(STR_ERROR, 0);
+    printLine(sz, 1);
+}

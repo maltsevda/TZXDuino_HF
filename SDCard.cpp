@@ -24,18 +24,30 @@ unsigned long outLong;
 
 // Private Functions
 
+void resetCurrentFileInfo()
+{
+    *fileName = 0;
+    *shortFileName = 0;
+    fileSize = 0;
+    fileIsDir = false;
+}
+
+bool isRootPath(const char* path)
+{
+    return path[0] == '/' && path[1] == 0;
+}
+
 bool changeDir(const char* path, bool updateWorkDir)
 {
-    if (path[0] == 0 || (path[0] == '/' && path[1] == 0))
+    resetCurrentFileInfo();
+
+    if (path[0] == 0 || isRootPath(path))
     {
         // switch to root folder
         sd.chdir(true);
         FatFile::cwd()->rewind();
         if (updateWorkDir)
-        {
-            workDir[0] = '/';
-            workDir[1] = 0;
-        }
+            strcpy(workDir, "/");
         return true;
     }
     else
@@ -46,9 +58,10 @@ bool changeDir(const char* path, bool updateWorkDir)
             if (updateWorkDir)
             {
                 if (path[0] == '/')
-                    strcpy(workDir, path);
+                    strncpy(workDir, path, SD_MAX_WORKDIR - 1);
                 else
                 {
+                    // TODO: unsafe - out of range SD_MAX_WORKDIR
                     strcat(workDir, path);
                     strcat(workDir, "/");
                 }
@@ -68,6 +81,8 @@ void readCurrentFileInfo()
         fileSize = file.fileSize();
         fileIsDir = file.isDir();
     }
+    else
+        resetCurrentFileInfo();
 }
 
 // Public Functions
@@ -90,9 +105,11 @@ bool childDir()
 
 bool parentDir()
 {
-    if (workDir[0] == '/' && workDir[1] == 0)
+    if (isRootPath(workDir))
         return false;
 
+    // workDir looks like '/sub_folder/subsub_folder1/'
+    // we need to find previous slash ↑ not the last ↑
     uint8_t index = 0;
     for (uint8_t i = 0; workDir[i]; ++i)
     {
@@ -104,18 +121,25 @@ bool parentDir()
     return changeDir(workDir, false);
 }
 
-void nextFile()
+bool nextFile()
 {
+    uint32_t goodPosition = FatFile::cwd()->curPosition();
     if (file.openNext(FatFile::cwd(), O_READ))
     {
         readCurrentFileInfo();
         file.close();
+        return true;
     }
+    else
+        FatFile::cwd()->seekSet(goodPosition);
+    return false;
 }
 
-void prevFile()
+bool prevFile()
 {
-    uint16_t index = FatFile::cwd()->curPosition() / 32;
+    bool fileNotFound = true;
+    uint32_t goodPosition = FatFile::cwd()->curPosition();
+    uint16_t index = goodPosition / 32;
 
     // skip self index
     if (index > 0)
@@ -126,11 +150,17 @@ void prevFile()
         --index;
         if (file.open(FatFile::cwd(), index, O_READ))
         {
+            fileNotFound = false;
             readCurrentFileInfo();
             file.close();
             break;
         }
     }
+
+    if (fileNotFound)
+        FatFile::cwd()->seekSet(goodPosition);
+
+    return !fileNotFound;
 }
 
 bool openFile()
@@ -171,65 +201,65 @@ uint32_t getFileSize()
     return fileSize;
 }
 
-//Read a DATA from the file, and move file position on N bytes if successful
+// I am not sure with bytes alignment, so I left the old code for WORD, LONG and DWORD
 
 int readByte()
 {
-    byte out[1];
     int i = 0;
     if (file.seekSet(bytesRead))
     {
-        i = file.read(out, 1);
+        i = file.read(&outByte, 1);
         if (i == 1)
             bytesRead += 1;
     }
-    outByte = out[0];
-    //blkchksum = blkchksum ^ out[0];
     return i;
 }
 
 int readWord()
 {
-    byte out[2];
     int i = 0;
+    byte out[2];
     if (file.seekSet(bytesRead))
     {
         i = file.read(out, 2);
         if (i == 2)
+        {
+            outWord = word(out[1], out[0]);
             bytesRead += 2;
+        }
     }
-    outWord = word(out[1], out[0]);
-    //blkchksum = blkchksum ^ out[0] ^ out[1];
     return i;
 }
 
 int readLong()
 {
-    byte out[3];
     int i = 0;
+    byte out[3];
     if (file.seekSet(bytesRead))
     {
         i = file.read(out, 3);
         if (i == 3)
+        {
+            outLong = (word(out[2], out[1]) << 8) | out[0];
             bytesRead += 3;
+        }
     }
-    outLong = (word(out[2], out[1]) << 8) | out[0];
-    //blkchksum = blkchksum ^ out[0] ^ out[1] ^ out[2];
     return i;
 }
 
 int readDword()
 {
-    byte out[4];
     int i = 0;
+    byte out[4];
     if (file.seekSet(bytesRead))
     {
         i = file.read(out, 4);
         if (i == 4)
+        {
+            outLong = (word(out[3], out[2]) << 16) | word(out[1], out[0]);
             bytesRead += 4;
+        }
     }
-    outLong = (word(out[3], out[2]) << 16) | word(out[1], out[0]);
-    //blkchksum = blkchksum ^ out[0] ^ out[1] ^ out[2] ^ out[3];
     return i;
 }
 

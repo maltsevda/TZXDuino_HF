@@ -33,17 +33,13 @@ void TZXStop();
 extern byte isStopped;
 
 //
-// Sound Functions
+// Functions
 //
 
 void sound(uint8_t val)
 {
     digitalWrite(SND_OUTPUT, val);
 }
-
-//
-// LCD Functions
-//
 
 void printFileInfo()
 {
@@ -54,9 +50,16 @@ void printFileInfo()
     printLine(getFileName(), 1);
 }
 
-//
-// Global File Operations
-//
+void printEmptyDir()
+{
+    printLine(STR_DIR, 0);
+    printLine(STR_EMPTY_DIR, 1);
+}
+
+void setPlayerMode(uint8_t newPlayerMode)
+{
+    playerMode = newPlayerMode;
+}
 
 bool isFileStopped()
 {
@@ -69,7 +72,7 @@ void stopFile()
     if (playerMode == MODE_PLAYING || playerMode == MODE_PAUSED)
     {
         printLine(STR_STOPPED_FULL, 0);
-        playerMode = MODE_BROWSE;
+        setPlayerMode(MODE_BROWSE);
     }
 }
 
@@ -87,11 +90,13 @@ void setup()
 
     if (setupSD(SD_CHIPSELECT))
     {
-        nextFile();
-        printFileInfo();
+        if (nextFile())
+            printFileInfo();
+        else
+            printEmptyDir();
     }
     else
-        printLine(STR_ERR_NOSDCARD, 0);
+        printError(STR_ERR_NOSDCARD);
 
     // Sound Output
 
@@ -122,15 +127,17 @@ void loopBrowse()
         {
             if (childDir())
             {
-                nextFile();
-                printFileInfo();
+                if (nextFile())
+                    printFileInfo();
+                else
+                    printEmptyDir();
             }
         }
         else
         {
             if (isFileExists())
             {
-                playerMode = MODE_PLAYING;
+                setPlayerMode(MODE_PLAYING);
                 counterTime = millis();
                 counter = 0;
                 percentages = UINT8_MAX;    // set unreal value for first printing
@@ -139,9 +146,7 @@ void loopBrowse()
                 printLine(getFileName(), 1);
             }
             else
-            {
-                printLine(STR_ERR_NOFILE, 1);
-            }
+                printError(STR_ERR_NOFILE);
         }
     }
 
@@ -196,7 +201,7 @@ void loopPlaying()
     if (buttonPlay.press())
     {
         printAt(STR_PAUSED_8, 0, 0);
-        playerMode = MODE_PAUSED;
+        setPlayerMode(MODE_PAUSED);
     }
 
     if (buttonStop.press())
@@ -216,7 +221,7 @@ void loopPaused()
     if (buttonPlay.press())
     {
         printAt(STR_PLAYING_8, 0, 0);
-        playerMode = MODE_PLAYING;
+        setPlayerMode(MODE_PLAYING);
     }
 
     if (buttonStop.press())

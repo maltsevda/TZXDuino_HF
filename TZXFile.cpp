@@ -1,79 +1,14 @@
-#include "Config.h"
+#include "TZXFile.h"
 #include <TimerOne.h>
-#include <SdFat.h>
+#include "Config.h"
 #include "SDCard.h"
+#include "Display.h"
 #include "Texts.h"
 
-//TZX block list - uncomment as supported
-#define ID10                0x10    //Standard speed data block
-#define ID11                0x11    //Turbo speed data block
-#define ID12                0x12    //Pure tone
-#define ID13                0x13    //Sequence of pulses of various lengths
-#define ID14                0x14    //Pure data block
-//#define ID15                0x15    //Direct recording block -- TBD - curious to load OTLA files using direct recording (22KHz)
-//#define ID18                0x18    //CSW recording block
-//#define ID19                0x19    //Generalized data block
-#define ID20                0x20    //Pause (silence) ot 'Stop the tape' command
-#define ID21                0x21    //Group start
-#define ID22                0x22    //Group end
-#define ID23                0x23    //Jump to block
-#define ID24                0x24    //Loop start
-#define ID25                0x25    //Loop end
-#define ID26                0x26    //Call sequence
-#define ID27                0x27    //Return from sequence
-#define ID28                0x28    //Select block
-#define ID2A                0x2A    //Stop the tape is in 48K mode
-#define ID2B                0x2B    //Set signal level
-#define ID30                0x30    //Text description
-#define ID31                0x31    //Message block
-#define ID32                0x32    //Archive info
-#define ID33                0x33    //Hardware type
-#define ID35                0x35    //Custom info block
-#define ID4B                0x4B    //Kansas City block (MSX/BBC/Acorn/...)
-#define IDPAUSE				0x59    //Custom Pause processing
-#define ID5A                0x5A    //Glue block (90 dec, ASCII Letter 'Z')
-#define AYO                 0xFB    //AY file
-#define ZXO                 0xFC    //ZX80 O file
-#define ZXP                 0xFD    //ZX81 P File
-#define TAP                 0xFE    //Tap File Mode
-#define EOF                 0xFF    //End of file
-
-//TZX File Tasks
-#define GETFILEHEADER         0
-#define GETID                 1
-#define PROCESSID             2
-#define GETAYHEADER           3
-
-//TZX ID Tasks
-#define READPARAM             0
-#define PILOT                 1
-#define SYNC1                 2
-#define SYNC2                 3
-#define DATA                  4
-#define PAUSE                 5
-
-//Buffer size
-#define buffsize              64
-
-//Spectrum Standards
-#define PILOTLENGTH           619
-#define SYNCFIRST             191
-#define SYNCSECOND            210
-#define ZEROPULSE             244
-#define ONEPULSE              489
-#define PILOTNUMBERL          8063
-#define PILOTNUMBERH          3223
-#define PAUSELENGTH           1000
-
-//ZX81 Standards
-#define ZX80PULSE                 160
-#define ZX80BITGAP                1442
-
-//ZX81 Pulse Patterns - Zero Bit  - HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, GAP
-//                    - One Bit   - HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, LOW, HIGH, GAP
-
-// AY Header offset start
-#define HDRSTART              0
+const char TZXTape[] PROGMEM = {'Z','X','T','a','p','e','!'};
+const char ZX81Filename[] PROGMEM = {'T','Z','X','D','U','I','N','O',0x9D};
+const char TAPHdr[] PROGMEM = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' ',' ',0x1A,0xB,0x0,0xC0,0x0,0x80,0x6E};
+const char AYFile[] PROGMEM = {'Z','X','A','Y','E','M','U','L'};
 
 //Keep track of which ID, Task, and Block Task we're dealing with
 byte currentID = 0;
@@ -85,7 +20,7 @@ word currentPeriod=1;
 
 //ISR Variables
 volatile byte pos = 0;
-volatile word wbuffer[buffsize+1][2];
+volatile word wbuffer[BUFFSIZE+1][2];
 volatile byte morebuff = HIGH;
 volatile byte workingBuffer=0;
 volatile byte isStopped=false;
@@ -127,35 +62,9 @@ byte EndOfFile=false;
 int TSXspeedup = 1;
 int BAUDRATE = 1200;
 
-const char TZXTape[] PROGMEM = {'Z','X','T','a','p','e','!'};
-const char ZX81Filename[] PROGMEM = {'T','Z','X','D','U','I','N','O',0x9D};
-const char TAPHdr[] PROGMEM = {0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' ',' ',0x1A,0xB,0x0,0xC0,0x0,0x80,0x6E};
-const char AYFile[] PROGMEM = {'Z','X','A','Y','E','M','U','L'};
-
-size_t printLine(const __FlashStringHelper *sz, uint8_t row);
-bool isFileStopped();
-void stopFile();
-void sound(uint8_t val);
-
-void checkForEXT();
-void TZXProcess();
-void wave();
-void StandardBlock();
-void writeData();
-void writeData4B();
-void writeHeader();
-void ZX81FilenameBlock();
-void ZX8081DataBlock();
-void ZX80ByteWrite();
-void PureToneBlock();
-void PureDataBlock();
-void PulseSequenceBlock();
-void ReadTZXHeader();
-void ReadAYHeader();
-
 void clearBuffer()
 {
-   for (int i = 0; i <= buffsize; i++)
+   for (int i = 0; i <= BUFFSIZE; i++)
     {
         wbuffer[i][0] = 0;
         wbuffer[i][1] = 0;
@@ -172,7 +81,7 @@ void TZXPlay()
     Timer1.stop(); //Stop timer interrupt
     if (!openFile())
     { //open file and check for errors
-        printLine(STR_ERR_OPEN_FILE, 0);
+        printError(STR_ERR_OPEN_FILE);
     }
     bytesRead = 0;               //start of file
     ayblklen = getFileSize() + 3; // add 3 file header, data byte and chksum byte to file length
@@ -239,7 +148,7 @@ void TZXLoop()
         copybuff = LOW;
     }
 
-    if (btemppos <= buffsize) // Keep filling until full
+    if (btemppos <= BUFFSIZE) // Keep filling until full
     {
         TZXProcess(); //generate the next period to add to the buffer
         if (currentPeriod > 0)
@@ -868,7 +777,7 @@ void TZXProcess()
 
         default:
             //ID Not Recognised - Fall back if non TZX file or unrecognised ID occurs
-            printLine(STR_ERR_ID, 1);
+            printError(STR_ERR_ID);
             delay(5000);
             stopFile();
             break;
@@ -1110,21 +1019,6 @@ void ZX81FilenameBlock()
         currentBit = 9;
         pass = 0;
     }
-    /*currentPeriod = ZX80PULSE;
-  if(pass==1) {
-    currentPeriod=ZX80BITGAP;
-  }
-  if(pass==0) {
-    if(currentByte&0x80) {                       //Set next period depending on value of bit 0
-      pass=19;
-    } else {
-      pass=9;
-    }
-    currentByte <<= 1;                        //Shift along to the next bit
-    currentBit += -1;
-    currentPeriod=0;
-  }
-  pass+=-1;*/
     ZX80ByteWrite();
 }
 
@@ -1137,15 +1031,6 @@ void ZX8081DataBlock()
         { //Read in a byte
             currentByte = outByte;
             bytesToRead += -1;
-            /*if(bytesToRead == 0) {                  //Check for end of data block
-        bytesRead += -1;                      //rewind a byte if we've reached the end
-        if(pauseLength==0) {                  //Search for next ID if there is no pause
-          currentTask = GETID;
-        } else {
-          currentBlockTask = PAUSE;           //Otherwise start the pause
-        }
-        return;
-      }*/
         }
         else if (r == 0)
         {
@@ -1157,21 +1042,6 @@ void ZX8081DataBlock()
         currentBit = 9;
         pass = 0;
     }
-    /*currentPeriod = ZX80PULSE;
-  if(pass==1) {
-    currentPeriod=ZX80BITGAP;
-  }
-  if(pass==0) {
-    if(currentByte&0x80) {                       //Set next period depending on value of bit 0
-      pass=19;
-    } else {
-      pass=9;
-    }
-    currentByte <<= 1;                        //Shift along to the next bit
-    currentBit += -1;
-    currentPeriod=0;
-  }
-  pass+=-1;*/
     ZX80ByteWrite();
 }
 
@@ -1390,7 +1260,7 @@ void wave()
                 newTime = workingPeriod; //After all that, if it's not a pause block set the pulse period
             }
             pos += 1;
-            if (pos > buffsize) //Swap buffer pages if we've reached the end
+            if (pos > BUFFSIZE) //Swap buffer pages if we've reached the end
             {
                 pos = 0;
                 workingBuffer ^= 1;
@@ -1402,7 +1272,7 @@ void wave()
     {
         newTime = 1000; //Just in case we have a 0 in the buffer
         pos += 1;
-        if (pos > buffsize)
+        if (pos > BUFFSIZE)
         {
             pos = 0;
             workingBuffer ^= 1;
@@ -1423,7 +1293,7 @@ void ReadTZXHeader()
 {
     if (!checkFileHeader(TZXTape, 10, 7))
     {
-        printLine(STR_ERR_NOTTZX, 1);
+        printError(STR_ERR_NOTTZX);
         TZXStop();
     }
 }
@@ -1432,7 +1302,7 @@ void ReadAYHeader()
 {
     if (!checkFileHeader(AYFile, 8, 8))
     {
-        printLine(STR_ERR_NOTAY, 1);
+        printError(STR_ERR_NOTAY);
         TZXStop();
     }
     // TODO: a bug?

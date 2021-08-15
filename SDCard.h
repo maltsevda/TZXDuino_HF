@@ -7,8 +7,8 @@ bool setupSD(uint8_t csPin);
 
 bool childDir();
 bool parentDir();
-void nextFile();
-void prevFile();
+bool nextFile();
+bool prevFile();
 
 bool openFile();
 void closeFile();
