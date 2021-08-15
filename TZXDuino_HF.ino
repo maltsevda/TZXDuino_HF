@@ -16,6 +16,7 @@ Button<BTN_DOWN> buttonDown(INPUT);
 #define MODE_BROWSE         0
 #define MODE_PLAYING        1
 #define MODE_PAUSED         2
+#define MODE_HALTED         3
 
 uint8_t playerMode = MODE_BROWSE;
 
@@ -58,7 +59,8 @@ void printEmptyDir()
 
 void setPlayerMode(uint8_t newPlayerMode)
 {
-    playerMode = newPlayerMode;
+    if (playerMode != MODE_HALTED)
+        playerMode = newPlayerMode;
 }
 
 bool isFileStopped()
@@ -96,7 +98,10 @@ void setup()
             printEmptyDir();
     }
     else
+    {
         printError(STR_ERR_NOSDCARD);
+        setPlayerMode(MODE_HALTED);
+    }
 
     // Sound Output
 
@@ -238,5 +243,6 @@ void loop(void)
     case MODE_BROWSE: loopBrowse(); break;
     case MODE_PLAYING: loopPlaying(); break;
     case MODE_PAUSED: loopPaused(); break;
+    case MODE_HALTED: delay(1000); break;
     }
 }
