@@ -15,29 +15,75 @@ allows multiple layers,  to return to root directory ensure a file titles ROOT
 worldofspectrum.org and TZX2WAV code by Francisco Javier Crespo
 
 * Menu System:\
-    TODO: add ORIC and ATARI tap support, clean up code, sleep
+TODO: add ORIC and ATARI tap support, clean up code, sleep
+
 * V1.0\
-    Motor Control Added.
-    High compatibility with Spectrum TZX, and Tap files and CPC CDT and TZX files.
+Motor Control Added.
+High compatibility with Spectrum TZX, and Tap files
+and CPC CDT and TZX files.
+
 * V1.32\
-    Added direct loading support of AY files using the SpecAY loader to play
-    Z80 coded files for the AY chip on any 128K or 48K with AY expansion without
-    the need to convert AY to TAP using FILE2TAP.EXE. Download the AY loader
-    from http://www.specay.co.uk/download and load the LOADER.TAP AY file loader
-    on your spectrum first then simply select any AY file and just hit play to
-    load it. A complete set of extracted and DEMO AY files can be downloaded
-    from http://www.worldofspectrum.org/projectay/index.htm
-    Happy listening!
+Added direct loading support of AY files using the SpecAY loader
+to play Z80 coded files for the AY chip on any 128K or 48K with AY
+expansion without the need to convert AY to TAP using FILE2TAP.EXE.
+Download the AY loader from http://www.specay.co.uk/download
+and load the LOADER.TAP AY file loader on your spectrum first then
+simply select any AY file and just hit play to load it. A complete
+set of extracted and DEMO AY files can be downloaded from
+http://www.worldofspectrum.org/projectay/index.htm
+Happy listening!
+
 * V1.8.1\
-    TSX support for MSX added by Natalia Pujol
+TSX support for MSX added by Natalia Pujol
+
 * V1.8.2\
-    Percentage counter and timer added by Rafael Molina Chesserot along with
-    a reworking of the OLED1306 library. Many memory usage improvements as well
-    as a menu for TSX Baud Rates and a refined directory controls.
+Percentage counter and timer added by Rafael Molina Chesserot along with a reworking of the OLED1306 library.
+Many memory usage improvements as well as a menu for TSX Baud Rates and a refined directory controls.
+
 * V1.8.3\
-    PCD8544 library changed to use less memory. Bitmaps added and Menu system
-    reduced to a more basic level. Bug fixes of the Percentage counter and timer
-    when using motor control.
+PCD8544 library changed to use less memory. Bitmaps added and Menu system reduced to a more basic level.
+Bug fixes of the Percentage counter and timer when using motor control.
+
+* V1.11\
+Added unzipped UEF playback and turbo UEF to the Menu thatks to the kind work by kernal@kernalcrash.com
+Supports Gunzipped UEFs only.
+
+* v1.13\
+HQ.UEF support added by Rafael Molina Chesserot of Team MAXDuino
+v1.13.1 Removed digitalWrite in favour of a macro suggested by Ken Forster
+Some MSX games will now work at higher Baudrates than before.
+
+* v1.13.2\
+Added a fix to some Gremlin Loaders which reverses the polarity of the block.
+New menu Item added. "Gremlin Loader" turned on will allow Samurai Trilogy and Footballer of the Year II
+CDTs to load properly.
+
+* 1.14\
+ID15 code adapted from MAXDuino by Rafael Molina Chasserot.
+Not working 100% with CPC Music Loaders but will work with other ID15 files.
+
+* 1.14.2\
+Added an ID15 switch to Menu as ID15 being enabled was stopping some files loading properly.
+
+* 1.14.3\
+Removed the switch in favour of an automatic system of switching ID15 routine on and off.
+
+* 1.15\
+Added support for the Surenoo RGB Backlight LCD using an adapted version of the Grove RGBLCD library.
+Second counter not currently working. Also some memory saving tweaks.
+
+* 1.15.3\
+Adapted the MAXDuino ID19 code and TurboMode for ZX80/81
+Also added UEF Chunk 117 which allows for differing baudrates in BBC UEFs.
+Added a Spectrum Font for OLED 1306 users converted by Brendan Alford
+Added File scrolling by holding up or down buttons. By Brendan Alford.
+
+* 1.16\
+Fixed a bug that was stopping Head Over Heels (and probably others)loading on +2 Spectrum. Seems to have made
+ZX80/81 playback alot more stable too.
+
+* 1.17\
+Added ORIC TAP file playback from the Maxduino team.
 
 ### Casduino Menu Code
 

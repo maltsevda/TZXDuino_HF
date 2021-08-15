@@ -18,5 +18,6 @@
 #define STR_ERR_ID          F("  Unknown ID    ")
 #define STR_ERR_NOTTZX      F("  Not TZX File  ")
 #define STR_ERR_NOTAY       F("  Not AY File   ")
+#define STR_ERR_NOTUEF      F("  Not UEF File  ")
 
 #endif // __TEXTS_H__

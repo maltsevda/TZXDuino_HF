@@ -27,7 +27,7 @@ uint8_t percentages = 0;
 
 void TZXSetup();
 void TZXPlay();
-void TZXLoop();
+bool TZXLoop();
 void TZXStop();
 
 extern byte isStopped;
@@ -174,29 +174,30 @@ void loopBrowse()
 
 void loopPlaying()
 {
-    //TZXLoop only runs if a file is playing, and keeps the buffer full.
-    TZXLoop();
+    // TZXLoop only runs if a file is playing, and keeps the buffer full.
+    if (TZXLoop())
+    {
+        // percents of playing and right-side counter 000
+        uint8_t newPercentages = (100 * bytesRead) / getFileSize();
+        if (percentages != newPercentages)
+        {
+            percentages = newPercentages;
+            printPercentages(percentages);
+        }
+
+        if (percentages < 100)
+        {
+            // check switch every second
+            if (millis() - counterTime > 1000)
+            {
+                counterTime = millis();
+                printCounter(counter++);
+            }
+        }
+    }
 
     buttonPlay.tick();
     buttonStop.tick();
-
-    // percents of playing and right-side counter 000
-    uint8_t newPercentages = (100 * bytesRead) / getFileSize();
-    if (percentages != newPercentages)
-    {
-        percentages = newPercentages;
-        printPercentages(percentages);
-    }
-
-    if (percentages < 100)
-    {
-        // check switch every second
-        if (millis() - counterTime > 1000)
-        {
-            counterTime = millis();
-            printCounter(counter++);
-        }
-    }
 
     if (buttonPlay.press())
     {
