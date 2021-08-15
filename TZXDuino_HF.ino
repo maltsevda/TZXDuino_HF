@@ -143,6 +143,8 @@ void loopBrowse()
                 percentages = UINT8_MAX;    // set unreal value for first printing
                 TZXPlay();
                 printLine(STR_PLAYING_FULL, 0);
+                printPercentages(0);
+                printCounter(0);
                 printLine(getFileName(), 1);
             }
             else

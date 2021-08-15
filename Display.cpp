@@ -39,7 +39,7 @@ void printCounter(unsigned int value)
 {
     lcd.setCursor(13, 0);
     if (value > 999)
-        lcd.print("999");
+        lcd.print(F("999"));
     else
     {
         if (value < 10)
@@ -50,18 +50,11 @@ void printCounter(unsigned int value)
     }
 }
 
-void printPercentages(uint8_t value, bool eraseTail = false)
+void printPercentages(uint8_t value)
 {
     lcd.setCursor(8, 0);
     lcd.print(value);
     lcd.print('%');
-    if (eraseTail)
-    {
-        if (value < 10)
-            lcd.print("  ");
-        else if (value < 100)
-            lcd.print(' ');
-    }
 }
 
 void printError(const __FlashStringHelper *sz)

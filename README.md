@@ -88,13 +88,13 @@ Added ORIC TAP file playback from the Maxduino team.
 ### Casduino Menu Code
 
 Menu Button (was motor controll button) opens menu up/down move through menu,
-play select, stop back Menu Options:\
+play select, stop back Menu Options:
 
 *Baud:*
 * 1200
 * 2400
 * 2700
-* 3600\
+* 3600
 
 *MotorControl:*
 * On
