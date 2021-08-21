@@ -1231,50 +1231,17 @@ void TZXProcess()
             break;
 
         default:
-            //stopFile();
+
             //ID Not Recognised - Fall back if non TZX file or unrecognised ID occurs
+            printError(STR_ERR_ID);
 
-#ifdef LCDSCREEN16x2
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("ID? ");
-            lcd.setCursor(4, 0);
-            lcd.print(String(currentID, HEX));
-            lcd.setCursor(0, 1);
-            lcd.print(String(bytesRead, HEX) + " - L: " + String(loopCount, DEC));
-#endif
-
-#ifdef RGBLCD
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("ID? ");
-            lcd.setCursor(4, 0);
-            lcd.print(String(currentID, HEX));
-            lcd.setCursor(0, 1);
-            lcd.print(String(bytesRead, HEX) + " - L: " + String(loopCount, DEC));
-#endif
-
-#ifdef OLED1306
-            printtextF(PSTR("ID? "), 0);
-            itoa(currentID, PlayBytes, 16);
-            sendStrXY(PlayBytes, 4, 0);
-            itoa(bytesRead, PlayBytes, 16);
-            strcat_P(PlayBytes, PSTR(" - L: "));
-            printtext(PlayBytes, 1);
-            itoa(loopCount, PlayBytes, 10);
-            sendStrXY(PlayBytes, 10, 1);
-
-#endif
-
-#ifdef P8544
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("ID? ");
-            lcd.setCursor(4, 0);
-            lcd.print(String(currentID, HEX));
-            lcd.setCursor(0, 1);
-            lcd.print(String(bytesRead, HEX) + " - L: " + String(loopCount, DEC));
-#endif
+            // lcd.clear();
+            // lcd.setCursor(0, 0);
+            // lcd.print("ID? ");
+            // lcd.setCursor(4, 0);
+            // lcd.print(String(currentID, HEX));
+            // lcd.setCursor(0, 1);
+            // lcd.print(String(bytesRead, HEX) + " - L: " + String(loopCount, DEC));
 
             delay(5000);
             stopFile();
@@ -1491,21 +1458,7 @@ void ZX81FilenameBlock()
         currentBit = 9;
         pass = 0;
     }
-    /*currentPeriod = ZX80PULSE;
-  if(pass==1) {
-    currentPeriod=ZX80BITGAP;
-  }
-  if(pass==0) {
-    if(currentByte&0x80) {                       //Set next period depending on value of bit 0
-      pass=19;
-    } else {
-      pass=9;
-    }
-    currentByte <<= 1;                        //Shift along to the next bit
-    currentBit += -1;
-    currentPeriod=0;
-  }
-  pass+=-1;*/
+
     ZX80ByteWrite();
 }
 
@@ -1531,21 +1484,6 @@ void ZX8081DataBlock()
         pass = 0;
     }
 
-    /*currentPeriod = ZX80PULSE;
-  if(pass==1) {
-    currentPeriod=ZX80BITGAP;
-  }
-  if(pass==0) {
-    if(currentByte&0x80) {                       //Set next period depending on value of bit 0
-      pass=19;
-    } else {
-      pass=9;
-    }
-    currentByte <<= 1;                        //Shift along to the next bit
-    currentBit += -1;
-    currentPeriod=0;
-  }
-  pass+=-1;*/
     ZX80ByteWrite();
 }
 
