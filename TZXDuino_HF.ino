@@ -3,6 +3,7 @@
 #include "Display.h"
 #include "Button.h"
 #include "SDCard.h"
+#include "Sound.h"
 
 // Global Object
 
@@ -26,21 +27,13 @@ uint8_t percentages = 0;
 
 // TZX Interface
 
-void TZXSetup();
 void TZXPlay();
 bool TZXLoop();
 void TZXStop();
 
-extern byte isStopped;
-
 //
 // Functions
 //
-
-void sound(uint8_t val)
-{
-    digitalWrite(SND_OUTPUT, val);
-}
 
 void printEmptyDir()
 {
@@ -110,12 +103,7 @@ void setup()
 
     // Sound Output
 
-    pinMode(SND_OUTPUT, OUTPUT);
-    sound(LOW);
-
-    //Setup TZX specific options
-
-    TZXSetup();
+    setupSound();
 }
 
 //

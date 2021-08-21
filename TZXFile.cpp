@@ -2,7 +2,7 @@
 #include "TZXFile.h"
 #include "Texts.h"
 #include "SDCard.h"
-#include <TimerOne.h>
+#include "Sound.h"
 
 PROGMEM const char TZXTape[7] = {'Z', 'X', 'T', 'a', 'p', 'e', '!'};
 PROGMEM const char TAPcheck[7] = {'T', 'A', 'P', 't', 'a', 'p', '.'};
@@ -20,17 +20,6 @@ byte currentBlockTask = 0;
 //Temporarily store for a pulse period before loading it into the buffer.
 word currentPeriod = 1;
 
-//ISR Variables
-volatile byte pos = 0;
-volatile word wbuffer[BUFFSIZE + 1][2];
-volatile byte morebuff = HIGH;
-volatile byte workingBuffer = 0;
-volatile byte isStopped = false;
-volatile byte pinState = LOW;
-volatile byte isPauseBlock = false;
-volatile byte wasPauseBlock = false;
-volatile byte intError = false;
-
 //Main Variables
 byte AYPASS = 0;
 byte hdrptr = 0;
@@ -46,7 +35,6 @@ word sync1Length = 0;
 word sync2Length = 0;
 word zeroPulse = 0;
 word onePulse = 0;
-word TstatesperSample = 0;
 byte usedBitsInLastByte = 8;
 word loopCount = 0;
 byte seqPulses = 0;
@@ -77,8 +65,6 @@ byte passforZero = 2;
 byte passforOne = 4;
 
 byte PauseAtStart = false;
-byte FlipPolarity = 0;
-byte ID15switch = 0;
 
 byte wibble = 1;
 byte parity = 0;      //0:NoParity 1:ParityOdd 2:ParityEven (default:0)
@@ -87,15 +73,6 @@ byte bitChecksum = 0; // 0:Even 1:Odd number of one bits
 //
 // TZXProcessing.ino
 //
-
-void clearBuffer()
-{
-    for (int i = 0; i <= BUFFSIZE; i++)
-    {
-        wbuffer[i][0] = 0;
-        wbuffer[i][1] = 0;
-    }
-}
 
 word TickToUs(word ticks)
 {
@@ -142,7 +119,7 @@ void checkForEXT()
 
 void TZXPlay()
 {
-    Timer1.stop(); //Stop timer interrupt
+    stopSound();
     if (openFile())
     { //open file and check for errors
         printError(STR_ERR_OPEN_FILE);
@@ -151,25 +128,20 @@ void TZXPlay()
     currentTask = GETFILEHEADER; //First task: search for header
     checkForEXT();
     currentBlockTask = READPARAM; //First block task is to read in parameters
-    clearBuffer();
-    isStopped = false;
-    pinState = LOW; //Always Start on a LOW output for simplicity
     count = 255;    //End of file buffer flush
     EndOfFile = false;
-    sound(pinState);
-    Timer1.setPeriod(1000); //set 1ms wait at start of a file.
+    //set 1ms wait at start of a file.
+    startSound(1000);
 }
 
 void TZXStop()
 {
-    Timer1.stop(); //Stop timer
-    isStopped = true;
+    stopSound();
     closeFile();
 
     bytesRead = 0;  // reset read bytes PlayBytes
     blkchksum = 0;  // reset block chksum byte for AY loading routine
     AYPASS = 0;     // reset AY flag
-    ID15switch = 0; // ID15switch
 }
 
 bool TZXLoop()
@@ -185,7 +157,7 @@ bool TZXLoop()
         copybuff = LOW;
     }
 
-    if (btemppos <= BUFFSIZE) // Keep filling until full
+    if (btemppos <= SND_BUFFSIZE) // Keep filling until full
     {
         TZXProcess(); //generate the next period to add to the buffer
         if (currentPeriod > 0)
@@ -199,15 +171,6 @@ bool TZXLoop()
     }
 
     return true;
-}
-
-void TZXSetup()
-{
-    isStopped = true;
-    pinState = LOW;
-    Timer1.initialize(100000); //100ms pause prevents anything bad happening before we're ready
-    Timer1.attachInterrupt(wave);
-    Timer1.stop(); //Stop the timer until we're ready
 }
 
 void TZXProcess()
@@ -1759,122 +1722,6 @@ void writeHeader()
         pass = 0;
     }
 } // End writeHeader()
-
-void wave()
-{
-    //ISR Output routine
-    //unsigned long fudgeTime = micros();         //fudgeTime is used to reduce length of the next period by the time taken to process the ISR
-    word workingPeriod = wbuffer[pos][workingBuffer];
-    byte pauseFlipBit = false;
-    unsigned long newTime = 1;
-    intError = false;
-    if (isStopped == 0 && workingPeriod >= 1)
-    {
-        if bitRead (workingPeriod, 15)
-        {
-            //If bit 15 of the current period is set we're about to run a pause
-            //Pauses start with a 1.5ms where the output is untouched after which the output is set LOW
-            //Pause block periods are stored in milliseconds not microseconds
-            isPauseBlock = true;
-            bitClear(workingPeriod, 15); //Clear pause block flag
-            pinState = !pinState;
-            pauseFlipBit = true;
-            wasPauseBlock = true;
-        }
-        else
-        {
-            if (workingPeriod >= 1 && wasPauseBlock == false)
-            {
-                pinState = !pinState;
-            }
-            else if (wasPauseBlock == true && isPauseBlock == false)
-            {
-                wasPauseBlock = false;
-            }
-            //if (wasPauseBlock==true && isPauseBlock==false) wasPauseBlock=false;
-        }
-
-        if (ID15switch == 1)
-        {
-            if (bitRead(workingPeriod, 14) == 0)
-            {
-                //pinState = !pinState;
-                sound(pinState);
-            }
-            else
-            {
-                if (bitRead(workingPeriod, 13) == 0)
-                    sound(LOW);
-                else
-                {
-                    sound(HIGH);
-                    bitClear(workingPeriod, 13);
-                }
-                bitClear(workingPeriod, 14); //Clear ID15 flag
-                workingPeriod = TstatesperSample;
-            }
-        }
-        else
-        {
-            //pinState = !pinState;
-            sound(pinState);
-        }
-
-        if (pauseFlipBit == true)
-        {
-            newTime = 1500; //Set 1.5ms initial pause block
-            //pinState = LOW;                     //Set next pinstate LOW
-            if (FlipPolarity == 0)
-            {
-                pinState = LOW;
-            }
-            else
-            {
-                pinState = HIGH;
-            }
-            wbuffer[pos][workingBuffer] = workingPeriod - 1; //reduce pause by 1ms as we've already pause for 1.5ms
-            pauseFlipBit = false;
-        }
-        else
-        {
-            if (isPauseBlock == true)
-            {
-                newTime = long(workingPeriod) * 1000; //Set pause length in microseconds
-                isPauseBlock = false;
-            }
-            else
-            {
-                newTime = workingPeriod; //After all that, if it's not a pause block set the pulse period
-            }
-            pos += 1;
-            if (pos > BUFFSIZE) //Swap buffer pages if we've reached the end
-            {
-                pos = 0;
-                workingBuffer ^= 1;
-                morebuff = HIGH; //Request more data to fill inactive page
-            }
-        }
-    }
-    else if (workingPeriod <= 1 && isStopped == 0)
-    {
-        newTime = 1000; //Just in case we have a 0 in the buffer
-        pos += 1;
-        if (pos > BUFFSIZE)
-        {
-            pos = 0;
-            workingBuffer ^= 1;
-            morebuff = HIGH;
-        }
-    }
-    else
-    {
-        newTime = 1000000; //Just in case we have a 0 in the buffer
-    }
-    //newTime += 12;
-    //fudgeTime = micros() - fudgeTime;         //Compensate for stupidly long ISR
-    //Timer1.setPeriod(newTime - fudgeTime);    //Finally set the next pulse length
-    Timer1.setPeriod(newTime + 4); //Finally set the next pulse length
-}
 
 void ReadTZXHeader()
 {

@@ -73,9 +73,6 @@
 #define SYNCLAST              9
 #define NAMELAST              10
 
-//Buffer size
-#define BUFFSIZE              64
-
 //Spectrum Standards
 #define PILOTLENGTH           619
 #define SYNCFIRST             191
@@ -167,7 +164,6 @@ void writeSampleData();
 
 // temp temp files
 
-void sound(uint8_t val);
 bool isFileStopped();
 void stopFile();
 void printError(const __FlashStringHelper *sz);
