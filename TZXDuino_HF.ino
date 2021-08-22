@@ -35,12 +35,6 @@ void TZXStop();
 // Functions
 //
 
-void printEmptyDir()
-{
-    printLine(STR_DIR, 0);
-    printLine(STR_EMPTY_DIR, 1);
-}
-
 void printFileInfo()
 {
     if (*getFileName())
@@ -52,7 +46,11 @@ void printFileInfo()
         printLine(getFileName(), 1);
     }
     else
-        printEmptyDir();
+    {
+        // this DIR is empty
+        printLine(STR_DIR, 0);
+        printLine(STR_EMPTY_DIR, 1);
+    }
 }
 
 void setPlayerMode(uint8_t newPlayerMode)
@@ -90,10 +88,8 @@ void setup()
 
     if (setupSD(SD_CHIPSELECT))
     {
-        if (nextFile())
-            printFileInfo();
-        else
-            printEmptyDir();
+        nextFile();
+        printFileInfo();
     }
     else
     {
@@ -125,10 +121,8 @@ void loopBrowse()
         {
             if (childDir())
             {
-                if (nextFile())
-                    printFileInfo();
-                else
-                    printEmptyDir();
+                nextFile();
+                printFileInfo();
             }
         }
         else
