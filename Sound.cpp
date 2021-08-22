@@ -4,7 +4,7 @@
 
 // ISR Variables
 volatile byte pos = 0;
-volatile word wbuffer[SND_BUFFSIZE + 1][2] = { 0 };
+volatile word wbuffer[SND_BUFFSIZE][2] = { 0 };
 volatile byte morebuff = HIGH;
 volatile byte workingBuffer = 0;
 volatile byte isStopped = false;
@@ -51,11 +51,12 @@ void startSound(unsigned long microseconds)
     pinState = LOW; //Always Start on a LOW output for simplicity
     isStopped = false;
     // clear sound buffer
-    for (int i = 0; i < SND_BUFFSIZE + 1; i++)
+    for (int i = 0; i < SND_BUFFSIZE; ++i)
     {
         wbuffer[i][0] = 0;
         wbuffer[i][1] = 0;
     }
+    // set PIN and timer
     sound(pinState);
     Timer1.setPeriod(microseconds);
 }
@@ -145,7 +146,7 @@ void soundISR()
                 newTime = workingPeriod; //After all that, if it's not a pause block set the pulse period
             }
             pos += 1;
-            if (pos > SND_BUFFSIZE) //Swap buffer pages if we've reached the end
+            if (pos >= SND_BUFFSIZE) //Swap buffer pages if we've reached the end
             {
                 pos = 0;
                 workingBuffer ^= 1;
@@ -157,7 +158,7 @@ void soundISR()
     {
         newTime = 1000; //Just in case we have a 0 in the buffer
         pos += 1;
-        if (pos > SND_BUFFSIZE)
+        if (pos >= SND_BUFFSIZE)
         {
             pos = 0;
             workingBuffer ^= 1;

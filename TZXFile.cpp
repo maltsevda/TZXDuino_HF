@@ -157,7 +157,7 @@ bool TZXLoop()
         copybuff = LOW;
     }
 
-    if (btemppos <= SND_BUFFSIZE) // Keep filling until full
+    if (btemppos < SND_BUFFSIZE) // Keep filling until full
     {
         TZXProcess(); //generate the next period to add to the buffer
         if (currentPeriod > 0)

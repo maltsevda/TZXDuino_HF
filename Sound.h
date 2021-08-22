@@ -17,7 +17,7 @@ void stopSound();
 
 // TODO: direct access to variables
 
-extern volatile word wbuffer[SND_BUFFSIZE + 1][2];
+extern volatile word wbuffer[SND_BUFFSIZE][2];
 extern volatile byte morebuff;
 extern volatile byte workingBuffer;
 extern volatile byte isStopped;
