@@ -7,6 +7,7 @@
 #define BTN_STOP    5
 #define BTN_UP      2
 #define BTN_DOWN    3
+#define BTN_MODE    INPUT
 
 #define LCD_RS      A0
 #define LCD_EN      A1

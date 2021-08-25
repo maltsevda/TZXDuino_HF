@@ -430,13 +430,22 @@ void TZXProcess()
             break;
 
         case IDCHUNKEOF:
-            bytesRead += bytesToRead;
-            stopFile();
-            return;
+            if (!count == 0)
+            {
+                //currentPeriod = 32767;
+                currentPeriod = 10;
+                bitSet(currentPeriod, 15); //bitSet(currentPeriod, 12);
+                count += -1;
+            }
+            else
+            {
+                bytesRead += bytesToRead;
+                stopFile();
+                return;
+            }
+            break;
 
         default:
-            //Serial.print(F("Skip id "));
-            //Serial.print(chunkID);
             bytesRead += bytesToRead;
             currentTask = GETCHUNKID;
             break;
@@ -1220,7 +1229,9 @@ void TZXProcess()
             //Handle end of file
             if (!count == 0)
             {
-                currentPeriod = 32767;
+                //currentPeriod = 32767;
+                currentPeriod = 10;
+                //bitSet(currentPeriod, 15); bitSet(currentPeriod, 12);
                 count += -1;
             }
             else

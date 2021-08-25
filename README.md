@@ -1,6 +1,6 @@
 ## CREDITS
 
-### TZXduino 1.17
+### TZXduino 1.18
 
 ```
 Written and tested by

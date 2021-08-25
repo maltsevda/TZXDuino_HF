@@ -7,10 +7,10 @@
 
 // Global Object
 
-Button<BTN_PLAY> buttonPlay(INPUT);
-Button<BTN_STOP> buttonStop(INPUT);
-Button<BTN_UP>   buttonUp(INPUT);
-Button<BTN_DOWN> buttonDown(INPUT);
+Button<BTN_PLAY> buttonPlay(BTN_MODE);
+Button<BTN_STOP> buttonStop(BTN_MODE);
+Button<BTN_UP>   buttonUp(BTN_MODE);
+Button<BTN_DOWN> buttonDown(BTN_MODE);
 
 // Player State
 
