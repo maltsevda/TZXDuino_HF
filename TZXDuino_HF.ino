@@ -9,8 +9,8 @@
 
 Button<BTN_PLAY> buttonPlay(BTN_MODE);
 Button<BTN_STOP> buttonStop(BTN_MODE);
-Button<BTN_UP>   buttonUp(BTN_MODE);
-Button<BTN_DOWN> buttonDown(BTN_MODE);
+Button<BTN_PREV> buttonPrev(BTN_MODE);
+Button<BTN_NEXT> buttonNext(BTN_MODE);
 
 // Player State
 
@@ -112,8 +112,8 @@ void loopBrowse()
 
     buttonPlay.tick();
     buttonStop.tick();
-    buttonUp.tick();
-    buttonDown.tick();
+    buttonPrev.tick();
+    buttonNext.tick();
 
     if (buttonPlay.press())
     {
@@ -153,13 +153,13 @@ void loopBrowse()
         }
     }
 
-    if (buttonUp.press())
+    if (buttonPrev.press())
     {
         prevFile();
         printFileInfo();
     }
 
-    if (buttonDown.press())
+    if (buttonNext.press())
     {
         nextFile();
         printFileInfo();

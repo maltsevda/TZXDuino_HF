@@ -25,6 +25,7 @@ void soundISR();
 
 void sound(uint8_t val)
 {
+    digitalWrite(SND_SPEAKER, val);
     digitalWrite(SND_OUTPUT, val);
 }
 
@@ -36,6 +37,7 @@ void setupSound()
     isStopped = true;
 
     // setup sound
+    pinMode(SND_SPEAKER, OUTPUT);
     pinMode(SND_OUTPUT, OUTPUT);
     sound(pinState);
 
