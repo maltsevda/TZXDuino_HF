@@ -1,3 +1,13 @@
+## ОПИСАНИЕ
+
+Рефакторинг проекта TZXduino от Andrew Beer и Duncan Edwards. Особенности моей
+версии - hardware часть построена на готовых модулях с Aliexpress. Полный
+рефакторинг всего кода, кроме части отвественной за формат файла TZX.
+
+Разводку платы, необходимые компоненты и gerber-файлы можно найти в этом
+репозитории:
+[https://github.com/maltsevda/TZXDuino_HFHW](https://github.com/maltsevda/TZXDuino_HFHW)
+
 ## CREDITS
 
 ### TZXduino 1.18

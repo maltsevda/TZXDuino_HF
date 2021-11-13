@@ -3,17 +3,17 @@
 #include <TimerOne.h>
 
 // ISR Variables
-volatile byte pos = 0;
-volatile word wbuffer[SND_BUFFSIZE][2] = { 0 };
-volatile byte morebuff = HIGH;
-volatile byte workingBuffer = 0;
-volatile byte isStopped = false;
+volatile word soundBuffers[SND_BUFFSIZE][2] = { 0 };
+volatile byte currentPosition = 0;  // 0...SND_BUFFSIZE-1
+volatile byte currentBuffer = 0;    // 0...1
+volatile byte isBufferSwapped = HIGH;
+volatile byte isSoundPaused = HIGH;
 volatile byte pinState = LOW;
-volatile byte isPauseBlock = false;
-volatile byte wasPauseBlock = false;
+volatile bool isPauseBlock = false;
+volatile bool wasPauseBlock = false;
 // ID15 switch
 volatile byte ID15switch = 0;
-volatile word TstatesperSample = 0;
+volatile word tStatesPerSample = 0;
 // This variable can be changed in menu (not realized yet)
 const bool flipPolarity = false;
 
@@ -34,7 +34,7 @@ void sound(uint8_t val)
 void setupSound()
 {
     pinState = LOW;
-    isStopped = true;
+    isSoundPaused = HIGH;
 
     // setup sound
     pinMode(SND_SPEAKER, OUTPUT);
@@ -51,35 +51,75 @@ void setupSound()
 void startSound(unsigned long microseconds)
 {
     pinState = LOW; //Always Start on a LOW output for simplicity
-    isStopped = false;
+    isSoundPaused = LOW;
     // clear sound buffer
     for (int i = 0; i < SND_BUFFSIZE; ++i)
     {
-        wbuffer[i][0] = 0;
-        wbuffer[i][1] = 0;
+        soundBuffers[i][0] = 0;
+        soundBuffers[i][1] = 0;
     }
     // set PIN and timer
     sound(pinState);
     Timer1.setPeriod(microseconds);
 }
 
+void pauseSound(byte pause)
+{
+    isSoundPaused = pause;
+}
+
 void stopSound()
 {
     Timer1.stop();
-    isStopped = true;
+    isSoundPaused = HIGH;
     ID15switch = 0; // ID15switch
 }
 
+void setPeriod(byte pos, word period)
+{
+    soundBuffers[pos][currentBuffer ^ 1] = period; //add period to the buffer
+}
+
+bool checkIfBufferSwapped()
+{
+    if (isBufferSwapped == HIGH)
+    {
+        isBufferSwapped = LOW;
+        return true;
+    }
+    return false;
+}
+
+// ID 15 - Direct Recording
+
+void setID15()
+{
+    ID15switch = 1;
+}
+
+void setTStates(word value)
+{
+    tStatesPerSample = value;
+}
+
+word getTStates()
+{
+    return tStatesPerSample;
+}
+
+//
+// Sound Timer ISR
+//
+
 void soundISR()
 {
-    //ISR Output routine
-    //unsigned long fudgeTime = micros();         //fudgeTime is used to reduce length of the next period by the time taken to process the ISR
-    word workingPeriod = wbuffer[pos][workingBuffer];
+    word workingPeriod = soundBuffers[currentPosition][currentBuffer];
     byte pauseFlipBit = false;
     unsigned long newTime = 1;
-    if (isStopped == 0 && workingPeriod >= 1)
+
+    if (isSoundPaused == LOW && workingPeriod >= 1)
     {
-        if bitRead (workingPeriod, 15)
+        if (bitRead(workingPeriod, 15))
         {
             //If bit 15 of the current period is set we're about to run a pause
             //Pauses start with a 1.5ms where the output is untouched after which the output is set LOW
@@ -100,14 +140,12 @@ void soundISR()
             {
                 wasPauseBlock = false;
             }
-            //if (wasPauseBlock==true && isPauseBlock==false) wasPauseBlock=false;
         }
 
         if (ID15switch == 1)
         {
             if (bitRead(workingPeriod, 14) == 0)
             {
-                //pinState = !pinState;
                 sound(pinState);
             }
             else
@@ -120,12 +158,11 @@ void soundISR()
                     bitClear(workingPeriod, 13);
                 }
                 bitClear(workingPeriod, 14); //Clear ID15 flag
-                workingPeriod = TstatesperSample;
+                workingPeriod = tStatesPerSample;
             }
         }
         else
         {
-            //pinState = !pinState;
             sound(pinState);
         }
 
@@ -133,7 +170,7 @@ void soundISR()
         {
             newTime = 1500; //Set 1.5ms initial pause block
             pinState = flipPolarity ? HIGH : LOW;
-            wbuffer[pos][workingBuffer] = workingPeriod - 1; //reduce pause by 1ms as we've already pause for 1.5ms
+            soundBuffers[currentPosition][currentBuffer] = workingPeriod - 1; //reduce pause by 1ms as we've already pause for 1.5ms
             pauseFlipBit = false;
         }
         else
@@ -147,24 +184,24 @@ void soundISR()
             {
                 newTime = workingPeriod; //After all that, if it's not a pause block set the pulse period
             }
-            pos += 1;
-            if (pos >= SND_BUFFSIZE) //Swap buffer pages if we've reached the end
+            currentPosition += 1;
+            if (currentPosition >= SND_BUFFSIZE) //Swap buffer pages if we've reached the end
             {
-                pos = 0;
-                workingBuffer ^= 1;
-                morebuff = HIGH; //Request more data to fill inactive page
+                currentPosition = 0;
+                currentBuffer ^= 1;
+                isBufferSwapped = HIGH; //Request more data to fill inactive page
             }
         }
     }
-    else if (workingPeriod <= 1 && isStopped == 0)
+    else if (isSoundPaused == LOW && workingPeriod <= 1)
     {
         newTime = 1000; //Just in case we have a 0 in the buffer
-        pos += 1;
-        if (pos >= SND_BUFFSIZE)
+        currentPosition += 1;
+        if (currentPosition >= SND_BUFFSIZE)
         {
-            pos = 0;
-            workingBuffer ^= 1;
-            morebuff = HIGH;
+            currentPosition = 0;
+            currentBuffer ^= 1;
+            isBufferSwapped = HIGH;
         }
     }
     else

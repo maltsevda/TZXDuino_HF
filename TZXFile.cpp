@@ -25,8 +25,7 @@ byte AYPASS = 0;
 byte hdrptr = 0;
 byte blkchksum = 0;
 word ayblklen = 0;
-byte btemppos = 0;
-byte copybuff = LOW;
+byte fillingBufferPosition = 0;
 unsigned long bytesToRead = 0;
 byte pulsesCountByte = 0;
 word pilotPulses = 0;
@@ -146,26 +145,21 @@ void TZXStop()
 
 bool TZXLoop()
 {
-    noInterrupts(); //Pause interrupts to prevent var reads and copy values out
-    copybuff = morebuff;
-    morebuff = LOW;
-    isStopped = isFileStopped();
+    noInterrupts(); // Pause interrupts to prevent var reads and copy values out
+    if (checkIfBufferSwapped())
+        fillingBufferPosition = 0; // Buffer has swapped, start from the beginning of the new page
+    pauseSound(LOW);
     interrupts();
-    if (copybuff == HIGH)
-    {
-        btemppos = 0; //Buffer has swapped, start from the beginning of the new page
-        copybuff = LOW;
-    }
 
-    if (btemppos < SND_BUFFSIZE) // Keep filling until full
+    if (fillingBufferPosition < SND_BUFFSIZE) // Keep filling until full
     {
-        TZXProcess(); //generate the next period to add to the buffer
+        TZXProcess(); // generate the next period to add to the buffer
         if (currentPeriod > 0)
         {
-            noInterrupts();                                       //Pause interrupts while we add a period to the buffer
-            wbuffer[btemppos][workingBuffer ^ 1] = currentPeriod; //add period to the buffer
+            noInterrupts(); // Pause interrupts while we add a period to the buffer
+            setPeriod(fillingBufferPosition, currentPeriod); // add period to the buffer
             interrupts();
-            btemppos += 1;
+            fillingBufferPosition += 1;
         }
         return false;
     }
@@ -642,7 +636,7 @@ void TZXProcess()
                 if (r = readWord() == 2)
                 {
                     //Number of T-states per sample (bit of data) 79 or 158 - 22.6757uS for 44.1KHz
-                    TstatesperSample = TickToUs(outWord);
+                    setTStates(TickToUs(outWord));
                 }
                 if (r = readWord() == 2)
                 {
@@ -663,7 +657,7 @@ void TZXProcess()
             }
             else
             {
-                currentPeriod = TstatesperSample;
+                currentPeriod = getTStates();
                 bitSet(currentPeriod, 14);
                 DirectRecording();
             }
@@ -1696,7 +1690,7 @@ void writeSampleData()
 {
     //Convert byte from file into string of pulses.  One pulse per pass
     byte r;
-    ID15switch = 1;
+    setID15();
     if (currentBit == 0)
     { //Check for byte end/first byte
         if (r = readByte() == 1)

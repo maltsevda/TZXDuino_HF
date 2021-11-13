@@ -137,7 +137,12 @@
 #define ORICONELOWPULSE   208
 #define ORICONEHIGHPULSE  208
 
-// Temp Files
+//
+// Function Declarations
+//
+
+void stopFile();    // TZXDuino_HF.ino
+void printError(const __FlashStringHelper *sz); // Display.h (.cpp)
 
 void checkForEXT();
 void TZXProcess();
@@ -160,11 +165,5 @@ void OricDataBlock();
 void OricBitWrite();
 void DirectRecording();
 void writeSampleData();
-
-// temp temp files
-
-bool isFileStopped();
-void stopFile();
-void printError(const __FlashStringHelper *sz);
 
 #endif // __TZXFILE_H__

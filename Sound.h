@@ -13,15 +13,16 @@ void sound(uint8_t val);
 
 void setupSound();
 void startSound(unsigned long microseconds);
+void pauseSound(byte pause);
 void stopSound();
 
-// TODO: direct access to variables
+void setPeriod(byte pos, word period);
+bool checkIfBufferSwapped();
 
-extern volatile word wbuffer[SND_BUFFSIZE][2];
-extern volatile byte morebuff;
-extern volatile byte workingBuffer;
-extern volatile byte isStopped;
-extern volatile byte ID15switch;
-extern volatile word TstatesperSample;
+// ID 15 - Direct Recording
+
+void setID15();
+void setTStates(word value);
+word getTStates();
 
 #endif // __SOUND_H__

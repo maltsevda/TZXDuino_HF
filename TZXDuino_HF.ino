@@ -59,11 +59,6 @@ void setPlayerMode(uint8_t newPlayerMode)
         playerMode = newPlayerMode;
 }
 
-bool isFileStopped()
-{
-    return playerMode != MODE_PLAYING;
-}
-
 void stopFile()
 {
     TZXStop();
@@ -108,8 +103,6 @@ void setup()
 
 void loopBrowse()
 {
-    sound(LOW);
-
     buttonPlay.tick();
     buttonStop.tick();
     buttonPrev.tick();
@@ -206,9 +199,9 @@ void loopPlaying()
 void loopPaused()
 {
     // Part of TZXLoop
-    isStopped = isFileStopped();
-
-    sound(LOW);
+    noInterrupts();
+    pauseSound(HIGH);
+    interrupts();
 
     buttonPlay.tick();
     buttonStop.tick();
@@ -225,6 +218,9 @@ void loopPaused()
 
 void loop(void)
 {
+    if (playerMode != MODE_PLAYING)
+        sound(LOW);
+
     switch (playerMode)
     {
     case MODE_BROWSE: loopBrowse(); break;
