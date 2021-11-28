@@ -1,4 +1,6 @@
-## ОПИСАНИЕ
+![Final Result](./Images/FinalResult.jpg "Final Result")
+
+# ОПИСАНИЕ
 
 Рефакторинг проекта TZXduino от Andrew Beer и Duncan Edwards. Особенности моей
 версии - hardware часть построена на готовых модулях с Aliexpress. Полный
@@ -8,7 +10,7 @@
 репозитории:
 [https://github.com/maltsevda/TZXDuino_HFHW](https://github.com/maltsevda/TZXDuino_HFHW)
 
-## CREDITS
+# CREDITS
 
 ### TZXduino 1.18
 
