@@ -10,6 +10,10 @@
 репозитории:
 [https://github.com/maltsevda/TZXDuino_HFHW](https://github.com/maltsevda/TZXDuino_HFHW)
 
+Зависимости: 
+* TimerOne (версия 1.1.0 или новее)
+* SdFat (версия 1.1.4, версия 2.Х.Х не поддерживается!)
+
 # CREDITS
 
 ### TZXduino 1.18
